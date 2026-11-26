@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0D47A1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
 <title>Cabine RTK • Fungurume</title>
 <style>
 :root{
@@ -443,7 +444,6 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <div id="statutCloture" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
   </div>
 
-  <!-- LIEN DE PARTAGE & INSTALLATION (UNIQUEMENT PATRON) -->
   <div class="card" id="zoneLienPatron" style="display:none">
     <details class="toggle-card" id="toggleLienApp">
       <summary>
@@ -458,7 +458,6 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     </details>
   </div>
 
-  <!-- HISTORIQUE DES OPÉRATIONS & MOUVEMENTS PAR JOUR -->
   <div class="card">
     <details class="toggle-card" id="toggleHistorique" open>
       <summary>
@@ -483,7 +482,6 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     </details>
   </div>
 
-  <!-- BOUTON OUVERTURE/FERMETURE : MESSAGES & REMARQUES -->
   <div class="card">
     <details class="toggle-card" id="toggleMessages">
       <summary>
@@ -648,23 +646,15 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <script>
-// === PWA MANIFEST DYNAMIQUE + INSTALLATION ===
+// === PWA MANIFEST & INSTALLATION ===
 (function initPWA(){
-  var svgIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><circle cx="60" cy="60" r="56" fill="#082E6B"/><circle cx="60" cy="60" r="46" fill="#E3F2FD"/><path d="M44 38 A22 22 0 0 1 76 38" fill="none" stroke="#0D47A1" stroke-width="4" stroke-linecap="round"/><path d="M50 76 L60 50 L70 76 M54 67 L66 67" fill="none" stroke="#2E7D32" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcon);
-  var manifest = {
-    name: "Cabine RTK Fungurume",
-    short_name: "Cabine RTK",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#082E6B",
-    theme_color: "#0D47A1",
-    icons: [{ src: iconUrl, sizes: "192x192", type: "image/svg+xml" }, { src: iconUrl, sizes: "512x512", type: "image/svg+xml" }]
-  };
-  var link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-  document.head.appendChild(link);
+  var link = document.querySelector('link[rel="manifest"]');
+  if(!link){
+    link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = 'manifest.json';
+    document.head.appendChild(link);
+  }
 })();
 
 var deferredPromptPWA = null;

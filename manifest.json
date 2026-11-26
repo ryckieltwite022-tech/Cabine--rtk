@@ -1,0 +1,19 @@
+{
+  "name": "RTK CABINE • FUNGURUME",
+  "short_name": "RTK Cabine",
+  "description": "Gestion et synchronisation des opérations RTK Cabine à Fungurume",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#c8102e",
+  "theme_color": "#c8102e",
+  "icons": [
+    {
+      "src": "./icon-rtk.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

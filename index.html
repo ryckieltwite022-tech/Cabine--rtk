@@ -646,14 +646,57 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <script>
-// === PWA MANIFEST & INSTALLATION ===
+// === PWA MANIFEST, ICÔNES & SERVICE WORKER ===
 (function initPWA(){
+  function creerIconePNG(taille){
+    var canvas = document.createElement('canvas');
+    canvas.width = taille;
+    canvas.height = taille;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#082E6B';
+    ctx.fillRect(0, 0, taille, taille);
+    ctx.strokeStyle = '#2E7D32';
+    ctx.lineWidth = Math.max(4, Math.round(taille * 0.04));
+    ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, taille - ctx.lineWidth, taille - ctx.lineWidth);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold ' + Math.round(taille * 0.24) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('RTK', taille / 2, taille / 2 - Math.round(taille * 0.04));
+    ctx.font = 'bold ' + Math.round(taille * 0.09) + 'px sans-serif';
+    ctx.fillStyle = '#A7F3D0';
+    ctx.fillText('FUNGURUME', taille / 2, taille / 2 + Math.round(taille * 0.16));
+    return canvas.toDataURL('image/png');
+  }
+
+  var manifestObj = {
+    name: "Cabine RTK • Fungurume",
+    short_name: "Cabine RTK",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: "#082E6B",
+    theme_color: "#0D47A1",
+    icons: [
+      { src: creerIconePNG(192), sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: creerIconePNG(512), sizes: "512x512", type: "image/png", purpose: "any" }
+    ]
+  };
+
+  var blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+  var manifestURL = URL.createObjectURL(blob);
   var link = document.querySelector('link[rel="manifest"]');
   if(!link){
     link = document.createElement('link');
     link.rel = 'manifest';
-    link.href = 'manifest.json';
     document.head.appendChild(link);
+  }
+  link.setAttribute('href', manifestURL);
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(function(err){
+      console.warn('Erreur Service Worker:', err);
+    });
   }
 })();
 
@@ -664,9 +707,15 @@ window.addEventListener('beforeinstallprompt', function(e){
   document.getElementById('bannerInstall').style.display = 'flex';
 });
 function installerAppPWA(){
-  if(!deferredPromptPWA){ alert('Utilise le menu de ton navigateur (⋮) puis "Installer l\'application" ou "Ajouter à l\'écran d\'accueil".'); return; }
+  if(!deferredPromptPWA){
+    alert('Appuie sur les 3 points en haut à droite de Chrome (⋮) puis choisis "Installer l\'application" ou "Ajouter à l\'écran d\'accueil".');
+    return;
+  }
   deferredPromptPWA.prompt();
-  deferredPromptPWA.userChoice.then(function(){ deferredPromptPWA = null; document.getElementById('bannerInstall').style.display = 'none'; });
+  deferredPromptPWA.userChoice.then(function(){
+    deferredPromptPWA = null;
+    document.getElementById('bannerInstall').style.display = 'none';
+  });
 }
 
 // === FIREBASE TEMPS RÉEL + TRANSACTIONS + FILE HORS-LIGNE ===

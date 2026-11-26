@@ -125,12 +125,13 @@ details.toggle-card > summary{
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap:8px;
   padding:4px 0;
   user-select:none;
 }
 details.toggle-card > summary::-webkit-details-marker{display:none}
 details.toggle-card[open] > summary{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.toggle-hint{font-size:11px;font-weight:700;color:var(--primary);background:#EEF2FF;padding:3px 9px;border-radius:99px}
+.toggle-hint{font-size:11px;font-weight:700;color:var(--primary);background:#EEF2FF;padding:3px 9px;border-radius:99px;white-space:nowrap}
 
 .alert-bar{
   margin:10px 12px 0;padding:10px 12px;border-radius:12px;font-size:12px;font-weight:700;
@@ -393,13 +394,12 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
   </div>
 
   <div class="card">
-    <div class="card-title">
-      <span>🌅 Stock Fin Journée / Matinal</span>
-      <span class="badge b-amber" id="badgeStockFin">0</span>
-    </div>
-    <details>
-      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--primary)">Saisir le comptage de fin de journée</summary>
-      <div style="margin-top:10px">
+    <details class="toggle-card" id="toggleStockFinJournee">
+      <summary>
+        <span>🌅 Stock Fin Journée / Matinal <span class="badge b-amber" id="badgeStockFin">0</span></span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
+      </summary>
+      <div style="margin-top:6px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div><label>Airtel Money</label><input id="finAirtelMoney" type="number" placeholder="0"></div>
           <div><label>Orange Money</label><input id="finOrangeMoney" type="number" placeholder="0"></div>
@@ -416,13 +416,18 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
         <input id="finStockNote" placeholder="Ex: Comptage soir...">
         <button onclick="soumettreStockFinJournee()">📨 Envoyer pour validation Patron</button>
       </div>
+      <div id="listeRelevesStockFin" style="margin-top:10px"></div>
     </details>
-    <div id="listeRelevesStockFin" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
-    <div class="card-title"><span>📜 Derniers mouvements Stock</span></div>
-    <div id="listeMouvementsStockCaisse"></div>
+    <details class="toggle-card" id="toggleDerniersMouvementsStock">
+      <summary>
+        <span>📜 Derniers mouvements Stock <span class="badge b-blue" id="badgeMouvementsStockJour">0</span></span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
+      </summary>
+      <div id="listeMouvementsStockCaisse"></div>
+    </details>
   </div>
 </section>
 
@@ -753,6 +758,7 @@ employes.forEach(function(e){ if(e.actif === undefined) e.actif = true; });
 
 var corbeille = JSON.parse(localStorage.getItem('rtk_corbeille') || '[]');
 var stockHistorique = JSON.parse(localStorage.getItem('rtk_stock_historique') || '[]');
+stockHistorique.forEach(function(h, idx){ if(!h.id) h.id = 'stk_hist_' + idx + '_' + (h.heure || '00'); });
 var caisseHistorique = JSON.parse(localStorage.getItem('rtk_caisse_historique') || '[]');
 var fraisHistorique = JSON.parse(localStorage.getItem('rtk_frais_historique') || '[]');
 var deblocagesHistorique = JSON.parse(localStorage.getItem('rtk_deblocages_historique') || '[]');
@@ -887,7 +893,13 @@ function appliquerEtatDepuisCloud(data){
     if(data.stockUnites){ stockUnites = data.stockUnites; _origSetItem('rtk_stockUnites', JSON.stringify(stockUnites)); }
     if(data.caisse !== undefined){ caisse = Number(data.caisse || 0); _origSetItem('rtk_caisse', String(caisse)); }
     if(data.caisseFrais !== undefined){ caisseFrais = Number(data.caisseFrais || 0); _origSetItem('rtk_caisse_frais', String(caisseFrais)); }
-    if(Array.isArray(data.stockHistorique)){ stockHistorique = data.stockHistorique; _origSetItem('rtk_stock_historique', JSON.stringify(stockHistorique)); }
+    if(Array.isArray(data.stockHistorique)){
+      stockHistorique = data.stockHistorique.map(function(h, idx){
+        if(!h.id) h.id = 'stk_hist_' + idx + '_' + (h.heure || '00');
+        return h;
+      });
+      _origSetItem('rtk_stock_historique', JSON.stringify(stockHistorique));
+    }
     if(Array.isArray(data.caisseHistorique)){ caisseHistorique = data.caisseHistorique; _origSetItem('rtk_caisse_historique', JSON.stringify(caisseHistorique)); }
     if(Array.isArray(data.fraisHistorique)){ fraisHistorique = data.fraisHistorique; _origSetItem('rtk_frais_historique', JSON.stringify(fraisHistorique)); }
     if(Array.isArray(data.remarquesEquipe)){ remarquesEquipe = data.remarquesEquipe; _origSetItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe)); }
@@ -1076,7 +1088,7 @@ function choisirTypeOp(type){
   if(type === 'Recharge Forfait'){
     choisirCategorieForfait(categorieForfaitActive);
   } else if(type === 'Recharge Unités'){
-    onSaisieUnites();
+    onSaisieMontant();
   } else {
     majFraisEtResume();
   }
@@ -1154,7 +1166,11 @@ function onSaisieUnites(){
 }
 
 function onSaisieMontant(){
-  if(typeOpActuel === 'Recharge Forfait'){
+  if(typeOpActuel === 'Recharge Unités'){
+    var rawMontant = document.getElementById('opMontant').value;
+    var mVal = Number(rawMontant || 0);
+    document.getElementById('opNbUnites').value = (rawMontant !== '' && mVal > 0) ? Math.floor(mVal / PRIX_UNITE_FC) : '';
+  } else if(typeOpActuel === 'Recharge Forfait'){
     detecterForfaitDepuisMontant();
   }
   majFraisEtResume();
@@ -1195,6 +1211,9 @@ function majFraisEtResume(){
     strip.innerHTML = '<span>Frais dépôt :</span><span>' + frais.toLocaleString() + ' CDF</span>';
   } else if(typeOpActuel === 'Retrait'){
     strip.innerHTML = '<span>Frais retrait client :</span><span>0 CDF (Gratuit)</span>';
+  } else if(typeOpActuel === 'Recharge Unités'){
+    var nbU = m > 0 ? Math.floor(m / PRIX_UNITE_FC) : 0;
+    strip.innerHTML = '<span>Unités calculées (1 u = ' + PRIX_UNITE_FC + ' FC) :</span><span>' + nbU.toLocaleString() + ' u</span>';
   } else if(typeOpActuel === 'Recharge Forfait'){
     var rawVal = document.getElementById('opChoixForfait').value || '';
     var parts = rawVal.split(' | ');
@@ -1236,7 +1255,8 @@ function enregistrerOperation(){
   var raison = document.getElementById('opRaisonEchec').value;
 
   if(typeOpActuel === 'Recharge Unités'){
-    var nbU = Number(document.getElementById('opNbUnites').value || Math.round(m / PRIX_UNITE_FC));
+    var nbU = Math.floor(m / PRIX_UNITE_FC);
+    document.getElementById('opNbUnites').value = nbU;
     detail = reseau + ' • ' + nbU + ' unités';
   } else if(typeOpActuel === 'Recharge Forfait'){
     var rawF = document.getElementById('opChoixForfait').value || '';
@@ -1265,7 +1285,7 @@ function enregistrerOperation(){
       localStorage.setItem('rtk_caisse', String(caisse));
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
     } else if(typeOpActuel === 'Recharge Unités'){
-      var nbUnit = Number(document.getElementById('opNbUnites').value || Math.round(m / PRIX_UNITE_FC));
+      var nbUnit = Math.floor(m / PRIX_UNITE_FC);
       if((stockUnites[reseau] || 0) < nbUnit){ alert('⛔ Stock unités ' + reseau + ' insuffisant !'); return; }
       stockUnites[reseau] -= nbUnit;
       soldeApresMvt = 'Reste ' + reseau + ': ' + Number(stockUnites[reseau]).toLocaleString() + ' u (' + (Number(stockUnites[reseau])*PRIX_UNITE_FC).toLocaleString() + ' FC)';
@@ -1375,7 +1395,7 @@ function validerAjustementStockCaisse(){
     stockMoney[reseau] = action === 'ajouter' ? avM + m : (action === 'retrancher' ? avM - m : m);
     if(action === 'ajouter') caisse = Math.max(0, caisse - m);
     if(action === 'retrancher') caisse += m;
-    stockHistorique.push({ id: 'stk_'+Date.now(), qui: emp.nom, action: action, type: 'money', reseau: reseau, montant: m, motif: motif, avant: avM, apres: stockMoney[reseau], date: dateAujourdhui(), heure: heureActuelle() });
+    stockHistorique.push({ id: 'stk_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: action, type: 'money', reseau: reseau, montant: m, motif: motif, avant: avM, apres: stockMoney[reseau], date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_stockMoney', JSON.stringify(stockMoney));
     localStorage.setItem('rtk_caisse', String(caisse));
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
@@ -1383,13 +1403,37 @@ function validerAjustementStockCaisse(){
     var avU = stockUnites[reseau] || 0;
     if(action === 'retrancher' && m > avU){ alert('⛔ Stock unités insuffisant'); return; }
     stockUnites[reseau] = action === 'ajouter' ? avU + m : (action === 'retrancher' ? avU - m : m);
-    stockHistorique.push({ id: 'stk_'+Date.now(), qui: emp.nom, action: action, type: 'unites', reseau: reseau + ' (Unités)', montant: m, motif: motif, avant: avU, apres: stockUnites[reseau], date: dateAujourdhui(), heure: heureActuelle() });
+    stockHistorique.push({ id: 'stk_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: action, type: 'unites', reseau: reseau + ' (Unités)', montant: m, motif: motif, avant: avU, apres: stockUnites[reseau], date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
   }
   fermerModal('modalStock');
   afficher();
   notifier('✅ Stock / Caisse synchronisé');
+}
+
+function supprimerMouvementStockParJour(idMouvement, dateJour){
+  if(!isPatron()){ alert('⛔ Action réservée au compte patron RYCKIEL.'); return; }
+  var cibleJour = dateJour || jourSelectionneHistorique || dateAujourdhui();
+  var indexTrouve = -1;
+  for(var i = 0; i < stockHistorique.length; i++){
+    var h = stockHistorique[i];
+    if(String(h.id) === String(idMouvement) && (h.date || dateAujourdhui()) === cibleJour){
+      indexTrouve = i;
+      break;
+    }
+  }
+  if(indexTrouve === -1){
+    notifier('⚠️ Mouvement introuvable pour le ' + cibleJour);
+    return;
+  }
+  var mvt = stockHistorique[indexTrouve];
+  if(!confirm('Supprimer ce mouvement de stock du ' + cibleJour + ' (' + (mvt.reseau || '') + ' • ' + Number(mvt.montant || 0).toLocaleString() + ') ?')) return;
+
+  stockHistorique.splice(indexTrouve, 1);
+  localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
+  afficher();
+  notifier('🗑️ Mouvement du ' + cibleJour + ' supprimé');
 }
 
 function soumettreStockFinJournee(){
@@ -1609,7 +1653,7 @@ function ouvrirRapport(dateCible){
   employes.forEach(function(e){
     var nb = 0, s = totalParEmploye[norm(e.nom)] || 0, f = 0;
     tout.forEach(function(v){ if(norm(v.vendeur) === norm(e.nom)){ nb++; f += Number(v.frais||0); } });
-    txt += "• " + e.nom + " : " + nb + " op. | Total: *" + s.toLocaleString() + " CDF* | Frais: " + f.toLocaleString() + "\n";
+    txt += "• " + e.nom + " : " + nb + " op. | Total: *" + s.toLocaleString() + " CDF* | Frais: " + f.toLocaleString() + " CDF\n";
   });
   texteRapportWhatsApp = txt;
 
@@ -1641,12 +1685,13 @@ function ouvrirRapport(dateCible){
     '<div class="rapport-total"><span>🏆 TOTAL OPÉRATIONS (' + jour + ')</span><span>' + totalGeneralOperations.toLocaleString() + ' CDF</span></div>' +
     '</div>';
 
-  html += '<div class="table-wrap"><table class="tbl"><tr><th>Heure</th><th>Agent</th><th>Opération</th><th>Montant</th><th>Client</th><th>Total Employé</th></tr>';
+  html += '<div class="table-wrap"><table class="tbl"><tr><th>Heure</th><th>Agent</th><th>Opération</th><th>Montant</th><th>Frais</th><th>Client</th><th>Total Employé</th></tr>';
   tout.slice().reverse().forEach(function(v){
     var totEmp = Number(totalParEmploye[norm(v.vendeur)] || 0);
-    html += '<tr><td>' + v.heure + '</td><td>' + v.vendeur + '</td><td>' + v.service + '</td><td>' + Number(v.montant).toLocaleString() + '</td><td>' + (v.numero || v.client) + '</td><td><b>' + totEmp.toLocaleString() + ' FC</b></td></tr>';
+    var fraisOp = Number(v.frais || 0);
+    html += '<tr><td>' + v.heure + '</td><td>' + v.vendeur + '</td><td>' + v.service + '</td><td>' + Number(v.montant).toLocaleString() + ' FC</td><td>' + fraisOp.toLocaleString() + ' FC</td><td>' + (v.numero || v.client) + '</td><td><b>' + totEmp.toLocaleString() + ' FC</b></td></tr>';
   });
-  html += '<tr class="tr-total-bas"><td colspan="5">🏆 TOTAL GÉNÉRAL DES TOUS LES EMPLOYÉS (' + jour + ')</td><td>' + totalGeneralEmployes.toLocaleString() + ' FC</td></tr>';
+  html += '<tr class="tr-total-bas"><td colspan="4">🏆 TOTAL GÉNÉRAL (' + jour + ')</td><td>' + totFrais.toLocaleString() + ' FC</td><td colspan="2">' + totalGeneralEmployes.toLocaleString() + ' FC</td></tr>';
   html += '</table></div>';
 
   document.getElementById('zoneRapportImpression').innerHTML = html;
@@ -1859,7 +1904,7 @@ function afficher(){
 
   var lienInp = document.getElementById('lienAppPartage');
   if(lienInp && window.location.href.indexOf('http') === 0) lienInp.value = window.location.href;
-  else if(lienInp) lienInp.value = 'https://soft-pudding-912cb1.netlify.app/';
+  else if(lienInp) lienInp.value = 'https://ryckieltwite022-tech.github.io/Cabine--rtk/';
 
   if(patron){
     var fp = document.getElementById('filtrePatron'), valFp = fp.value || 'TOUT';
@@ -1882,6 +1927,7 @@ function afficher(){
   }
 
   var jourFiltre = jourSelectionneHistorique || auj;
+  var jourStockCible = (jourFiltre === 'TOUS') ? auj : jourFiltre;
 
   var visibles = [];
   if(patron){
@@ -1977,10 +2023,28 @@ function afficher(){
     return '<div class="row-item"><span>📱 Unités ' + k + '</span><b>' + uVal.toLocaleString() + ' <small style="display:inline;color:var(--muted)">(' + (uVal * PRIX_UNITE_FC).toLocaleString() + ' FC)</small></b></div>';
   }).join('');
 
-  document.getElementById('listeMouvementsStockCaisse').innerHTML = stockHistorique.slice(-10).reverse().map(function(h){
+  var mouvementsStockJour = stockHistorique.filter(function(h){
+    var d = h.date || auj;
+    return d === jourStockCible;
+  });
+  var badgeStkJour = document.getElementById('badgeMouvementsStockJour');
+  if(badgeStkJour) badgeStkJour.textContent = jourStockCible + ' • ' + mouvementsStockJour.length;
+
+  document.getElementById('listeMouvementsStockCaisse').innerHTML = mouvementsStockJour.slice().reverse().slice(0, 15).map(function(h){
     var apresStr = Number(h.apres || 0).toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
-    return '<div class="row-item"><div><b>' + h.action.toUpperCase() + ' • ' + h.reseau + '</b><small>' + h.qui + ' • ' + h.heure + ' • ' + h.motif + '</small><span class="sub-total-tag">∑ Total après: ' + apresStr + '</span></div><b>' + Number(h.montant).toLocaleString() + '</b></div>';
-  }).join('') || '<small style="color:var(--muted)">Aucun mouvement.</small>';
+    var dateMvt = h.date || jourStockCible;
+    var btnSuppr = patron
+      ? '<button type="button" class="btn-sm btn-red" onclick="supprimerMouvementStockParJour(\'' + String(h.id) + '\', \'' + dateMvt + '\')">🗑️ Supprimer</button>'
+      : '';
+    return '<div class="row-item">' +
+      '<div><b>' + h.action.toUpperCase() + ' • ' + h.reseau + '</b>' +
+      '<small>' + h.qui + ' • ' + dateMvt + ' ' + h.heure + ' • ' + h.motif + '</small>' +
+      '<span class="sub-total-tag">∑ Total après: ' + apresStr + '</span></div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<b>' + Number(h.montant).toLocaleString() + '</b>' +
+      btnSuppr +
+      '</div></div>';
+  }).join('') || '<small style="color:var(--muted)">Aucun mouvement de stock pour le ' + jourStockCible + '.</small>';
 
   var relVis = patron ? relevesStockFinJournee : relevesStockFinJournee.filter(function(r){ return norm(r.soumisPar) === norm(u); });
   document.getElementById('badgeStockFin').textContent = relVis.length;

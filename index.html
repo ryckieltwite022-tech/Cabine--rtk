@@ -189,6 +189,10 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 }
 .hist-toolbar select,.hist-toolbar button{margin:0;width:auto}
 
+.msg-card{padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;font-size:13px}
+.msg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.btn-del-msg{padding:4px 8px;font-size:11px;border-radius:8px;width:auto;background:#FEF2F2;color:var(--danger);border:1px solid #FECACA}
+
 #toastNotif{
   position:fixed;top:72px;left:50%;transform:translateX(-50%);
   background:#1E293B;color:#fff;padding:10px 16px;border-radius:99px;
@@ -646,57 +650,73 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <script>
-// === PWA MANIFEST, ICÔNES & SERVICE WORKER ===
-(function initPWA(){
-  function creerIconePNG(taille){
-    var canvas = document.createElement('canvas');
-    canvas.width = taille;
-    canvas.height = taille;
-    var ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#082E6B';
-    ctx.fillRect(0, 0, taille, taille);
-    ctx.strokeStyle = '#2E7D32';
-    ctx.lineWidth = Math.max(4, Math.round(taille * 0.04));
-    ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, taille - ctx.lineWidth, taille - ctx.lineWidth);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold ' + Math.round(taille * 0.24) + 'px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('RTK', taille / 2, taille / 2 - Math.round(taille * 0.04));
-    ctx.font = 'bold ' + Math.round(taille * 0.09) + 'px sans-serif';
-    ctx.fillStyle = '#A7F3D0';
-    ctx.fillText('FUNGURUME', taille / 2, taille / 2 + Math.round(taille * 0.16));
-    return canvas.toDataURL('image/png');
+// === TONALITÉS SUR MOUVEMENTS MÉTIER UNIQUEMENT ===
+// Pas de son sur : clic d'onglet, ouverture/fermeture de modale ou <details>, saisie clavier, ou synchro cloud passive.
+var _audioCtx = null;
+function getAudioCtx(){
+  try{
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return null;
+    if(!_audioCtx) _audioCtx = new Ctx();
+    if(_audioCtx.state === 'suspended') _audioCtx.resume().catch(function(){});
+    return _audioCtx;
+  } catch(e){
+    return null;
   }
+}
+function jouerNote(freq, dureeSec, delaiSec, typeOnde, gainMax){
+  var ctx = getAudioCtx();
+  if(!ctx) return;
+  try{
+    var debut = ctx.currentTime + (delaiSec || 0);
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = typeOnde || 'sine';
+    osc.frequency.setValueAtTime(freq, debut);
 
-  var manifestObj = {
-    name: "Cabine RTK • Fungurume",
-    short_name: "Cabine RTK",
-    start_url: "./",
-    scope: "./",
-    display: "standalone",
-    background_color: "#082E6B",
-    theme_color: "#0D47A1",
-    icons: [
-      { src: creerIconePNG(192), sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: creerIconePNG(512), sizes: "512x512", type: "image/png", purpose: "any" }
-    ]
-  };
+    var g = gainMax || 0.14;
+    gain.gain.setValueAtTime(0.0001, debut);
+    gain.gain.exponentialRampToValueAtTime(g, debut + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, debut + dureeSec);
 
-  var blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
-  var manifestURL = URL.createObjectURL(blob);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(debut);
+    osc.stop(debut + dureeSec + 0.02);
+  } catch(e){}
+}
+function jouerTonalite(genre){
+  // genre : 'operation' | 'stock' | 'message' | 'cloture' | 'suppression' | 'erreur'
+  if(genre === 'operation'){
+    jouerNote(659.25, 0.11, 0, 'triangle', 0.16);
+    jouerNote(880.00, 0.16, 0.09, 'triangle', 0.16);
+  } else if(genre === 'stock'){
+    jouerNote(587.33, 0.10, 0, 'sine', 0.14);
+    jouerNote(783.99, 0.14, 0.08, 'sine', 0.14);
+  } else if(genre === 'message'){
+    jouerNote(740.00, 0.09, 0, 'sine', 0.12);
+    jouerNote(987.77, 0.12, 0.07, 'sine', 0.12);
+  } else if(genre === 'cloture'){
+    jouerNote(523.25, 0.12, 0, 'triangle', 0.15);
+    jouerNote(659.25, 0.12, 0.10, 'triangle', 0.15);
+    jouerNote(783.99, 0.20, 0.20, 'triangle', 0.15);
+  } else if(genre === 'suppression'){
+    jouerNote(392.00, 0.12, 0, 'sine', 0.13);
+    jouerNote(311.13, 0.16, 0.09, 'sine', 0.13);
+  } else if(genre === 'erreur'){
+    jouerNote(220.00, 0.14, 0, 'sawtooth', 0.09);
+    jouerNote(185.00, 0.18, 0.12, 'sawtooth', 0.09);
+  }
+}
+
+// === PWA MANIFEST & INSTALLATION ===
+(function initPWA(){
   var link = document.querySelector('link[rel="manifest"]');
   if(!link){
     link = document.createElement('link');
     link.rel = 'manifest';
+    link.href = 'manifest.json';
     document.head.appendChild(link);
-  }
-  link.setAttribute('href', manifestURL);
-
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js').catch(function(err){
-      console.warn('Erreur Service Worker:', err);
-    });
   }
 })();
 
@@ -707,15 +727,9 @@ window.addEventListener('beforeinstallprompt', function(e){
   document.getElementById('bannerInstall').style.display = 'flex';
 });
 function installerAppPWA(){
-  if(!deferredPromptPWA){
-    alert('Appuie sur les 3 points en haut à droite de Chrome (⋮) puis choisis "Installer l\'application" ou "Ajouter à l\'écran d\'accueil".');
-    return;
-  }
+  if(!deferredPromptPWA){ alert('Utilise le menu de ton navigateur (⋮) puis "Installer l\'application" ou "Ajouter à l\'écran d\'accueil".'); return; }
   deferredPromptPWA.prompt();
-  deferredPromptPWA.userChoice.then(function(){
-    deferredPromptPWA = null;
-    document.getElementById('bannerInstall').style.display = 'none';
-  });
+  deferredPromptPWA.userChoice.then(function(){ deferredPromptPWA = null; document.getElementById('bannerInstall').style.display = 'none'; });
 }
 
 // === FIREBASE TEMPS RÉEL + TRANSACTIONS + FILE HORS-LIGNE ===
@@ -960,8 +974,8 @@ function entrer(){
   var nom = document.getElementById('nomUser').value.trim();
   var code = document.getElementById('codeSecret').value.trim();
   var emp = trouverEmploye(nom);
-  if(!emp || emp.code !== code){ alert('❌ Nom ou code incorrect'); return; }
-  if(emp.actif === false){ alert('⛔ Compte désactivé par le Patron RYCKIEL.'); return; }
+  if(!emp || emp.code !== code){ jouerTonalite('erreur'); alert('❌ Nom ou code incorrect'); return; }
+  if(emp.actif === false){ jouerTonalite('erreur'); alert('⛔ Compte désactivé par le Patron RYCKIEL.'); return; }
   sessionStorage.setItem('rtk_user', emp.nom);
   sessionStorage.setItem('rtk_code', emp.code);
   document.getElementById('login').style.display = 'none';
@@ -1014,6 +1028,7 @@ function estBloquePourEmploye(){
 
 function verifierBlocage(){
   if(!estBloquePourEmploye()) return false;
+  jouerTonalite('erreur');
   document.getElementById('urgCodeEmp').value = '';
   document.getElementById('urgCodePatron').value = '';
   ouvrirModal('modalUrgence');
@@ -1024,8 +1039,8 @@ function validerDeblocageUrgence(){
   var emp = trouverParCode(getCode());
   var cEmp = document.getElementById('urgCodeEmp').value.trim();
   var cPat = document.getElementById('urgCodePatron').value.trim();
-  if(!emp || cEmp !== emp.code){ alert('❌ Code employé incorrect'); return; }
-  if(cPat !== getCodePatron()){ alert('❌ Code Patron incorrect'); return; }
+  if(!emp || cEmp !== emp.code){ jouerTonalite('erreur'); alert('❌ Code employé incorrect'); return; }
+  if(cPat !== getCodePatron()){ jouerTonalite('erreur'); alert('❌ Code Patron incorrect'); return; }
   var auj = dateAujourdhui();
   if(!deblocagesUrgenceJour[auj]) deblocagesUrgenceJour[auj] = {};
   deblocagesUrgenceJour[auj][norm(emp.nom)] = true;
@@ -1033,6 +1048,7 @@ function validerDeblocageUrgence(){
   deblocagesHistorique.push({ employe: emp.nom, validePar: 'RYCKIEL', date: auj, heure: heureActuelle() });
   localStorage.setItem('rtk_deblocages_historique', JSON.stringify(deblocagesHistorique));
   fermerModal('modalUrgence');
+  jouerTonalite('stock');
   afficher();
   notifier('🔓 Accès d\'urgence débloqué');
 }
@@ -1276,15 +1292,15 @@ function enregistrerOperation(){
   var estTelecom = (document.getElementById('zoneReseau').style.display !== 'none');
 
   if(estTelecom){
-    if(n.length < 10){ alert('❌ Erreur : le numéro doit contenir 10 chiffres (moins de 10 chiffres saisis).'); return; }
-    if(n.length > 10){ alert('❌ Erreur : le numéro ne peut pas dépasser 10 chiffres (plus de 10 chiffres saisis).'); return; }
-    if(det === 'Inconnu'){ alert('❌ Préfixe RDC inconnu'); return; }
+    if(n.length < 10){ jouerTonalite('erreur'); alert('❌ Erreur : le numéro doit contenir 10 chiffres (moins de 10 chiffres saisis).'); return; }
+    if(n.length > 10){ jouerTonalite('erreur'); alert('❌ Erreur : le numéro ne peut pas dépasser 10 chiffres (plus de 10 chiffres saisis).'); return; }
+    if(det === 'Inconnu'){ jouerTonalite('erreur'); alert('❌ Préfixe RDC inconnu'); return; }
     var resChoisi = document.getElementById('opReseau').value;
-    if(resChoisi.indexOf(det) === -1){ alert('❌ Le numéro est ' + det + ', pas ' + resChoisi); return; }
+    if(resChoisi.indexOf(det) === -1){ jouerTonalite('erreur'); alert('❌ Le numéro est ' + det + ', pas ' + resChoisi); return; }
   }
 
   var m = Number(document.getElementById('opMontant').value || 0);
-  if(!m || m <= 0){ alert('❌ Saisis un montant valide'); return; }
+  if(!m || m <= 0){ jouerTonalite('erreur'); alert('❌ Saisis un montant valide'); return; }
 
   var frais = (typeOpActuel === 'Dépôt - Transfert Monnaie') ? calculerFrais(m) : 0;
   var reseau = estTelecom ? document.getElementById('opReseau').value : '';
@@ -1308,7 +1324,7 @@ function enregistrerOperation(){
   var soldeApresMvt = '';
   if(!estEchec){
     if(typeOpActuel === 'Dépôt - Transfert Monnaie'){
-      if((stockMoney[reseau] || 0) < m){ alert('⛔ Stock ' + reseau + ' insuffisant !'); return; }
+      if((stockMoney[reseau] || 0) < m){ jouerTonalite('erreur'); alert('⛔ Stock ' + reseau + ' insuffisant !'); return; }
       stockMoney[reseau] -= m;
       caisse += m;
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + reseau + ': ' + Number(stockMoney[reseau]).toLocaleString() + ' FC';
@@ -1316,7 +1332,7 @@ function enregistrerOperation(){
       localStorage.setItem('rtk_caisse', String(caisse));
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
     } else if(typeOpActuel === 'Retrait'){
-      if(caisse < m){ alert('⛔ Caisse espèces insuffisante pour ce retrait !'); return; }
+      if(caisse < m){ jouerTonalite('erreur'); alert('⛔ Caisse espèces insuffisante pour ce retrait !'); return; }
       caisse -= m;
       stockMoney[reseau] = (stockMoney[reseau] || 0) + m;
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + reseau + ': ' + Number(stockMoney[reseau]).toLocaleString() + ' FC';
@@ -1325,7 +1341,7 @@ function enregistrerOperation(){
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
     } else if(typeOpActuel === 'Recharge Unités'){
       var nbUnit = Math.floor(m / PRIX_UNITE_FC);
-      if((stockUnites[reseau] || 0) < nbUnit){ alert('⛔ Stock unités ' + reseau + ' insuffisant !'); return; }
+      if((stockUnites[reseau] || 0) < nbUnit){ jouerTonalite('erreur'); alert('⛔ Stock unités ' + reseau + ' insuffisant !'); return; }
       stockUnites[reseau] -= nbUnit;
       soldeApresMvt = 'Reste ' + reseau + ': ' + Number(stockUnites[reseau]).toLocaleString() + ' u (' + (Number(stockUnites[reseau])*PRIX_UNITE_FC).toLocaleString() + ' FC)';
     } else {
@@ -1350,6 +1366,7 @@ function enregistrerOperation(){
     sacE.push(obj);
     sauverSacEchec(c, sacE);
     reinitialiserFormOp();
+    jouerTonalite('erreur');
     afficher();
     notifier('❌ Opération échouée enregistrée');
     return;
@@ -1373,6 +1390,7 @@ function enregistrerOperation(){
   document.getElementById('badgeCompteurSession').textContent = compteurSession + ' op.';
   document.getElementById('dernierRecu').textContent = '✅ Dernier : ' + typeOpActuel + ' • ' + m.toLocaleString() + ' CDF (Total ' + emp.nom + ': ' + totalEmployeApresOp.toLocaleString() + ' FC)';
   reinitialiserFormOp();
+  jouerTonalite('operation');
   afficher();
   notifier('✅ Enregistré et synchronisé');
 }
@@ -1413,16 +1431,16 @@ function validerAjustementStockCaisse(){
   if(verifierBlocage()) return;
   var emp = trouverParCode(getCode());
   var code = document.getElementById('stkCode').value.trim();
-  if(!emp || code !== emp.code){ alert('❌ Code secret incorrect'); return; }
+  if(!emp || code !== emp.code){ jouerTonalite('erreur'); alert('❌ Code secret incorrect'); return; }
   var cible = document.getElementById('stkCible').value;
   var action = document.getElementById('stkAction').value;
   var reseau = document.getElementById('stkReseau').value;
   var m = Number(document.getElementById('stkMontant').value || 0);
   var motif = document.getElementById('stkMotif').value.trim();
-  if(m <= 0 || !motif){ alert('❌ Montant et motif requis'); return; }
+  if(m <= 0 || !motif){ jouerTonalite('erreur'); alert('❌ Montant et motif requis'); return; }
 
   if(cible === 'caisse'){
-    if(action === 'retrancher' && m > caisse){ alert('⛔ Caisse insuffisante'); return; }
+    if(action === 'retrancher' && m > caisse){ jouerTonalite('erreur'); alert('⛔ Caisse insuffisante'); return; }
     var avC = caisse;
     caisse = action === 'ajouter' ? caisse + m : (action === 'retrancher' ? caisse - m : m);
     caisseHistorique.push({ qui: emp.nom, action: action, montant: m, motif: motif, avant: avC, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
@@ -1430,7 +1448,7 @@ function validerAjustementStockCaisse(){
     localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
   } else if(cible === 'money'){
     var avM = stockMoney[reseau] || 0;
-    if(action === 'retrancher' && m > avM){ alert('⛔ Stock insuffisant'); return; }
+    if(action === 'retrancher' && m > avM){ jouerTonalite('erreur'); alert('⛔ Stock insuffisant'); return; }
     stockMoney[reseau] = action === 'ajouter' ? avM + m : (action === 'retrancher' ? avM - m : m);
     if(action === 'ajouter') caisse = Math.max(0, caisse - m);
     if(action === 'retrancher') caisse += m;
@@ -1440,19 +1458,20 @@ function validerAjustementStockCaisse(){
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
   } else {
     var avU = stockUnites[reseau] || 0;
-    if(action === 'retrancher' && m > avU){ alert('⛔ Stock unités insuffisant'); return; }
+    if(action === 'retrancher' && m > avU){ jouerTonalite('erreur'); alert('⛔ Stock unités insuffisant'); return; }
     stockUnites[reseau] = action === 'ajouter' ? avU + m : (action === 'retrancher' ? avU - m : m);
     stockHistorique.push({ id: 'stk_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: action, type: 'unites', reseau: reseau + ' (Unités)', montant: m, motif: motif, avant: avU, apres: stockUnites[reseau], date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
   }
   fermerModal('modalStock');
+  jouerTonalite('stock');
   afficher();
   notifier('✅ Stock / Caisse synchronisé');
 }
 
 function supprimerMouvementStockParJour(idMouvement, dateJour){
-  if(!isPatron()){ alert('⛔ Action réservée au compte patron RYCKIEL.'); return; }
+  if(!isPatron()){ jouerTonalite('erreur'); alert('⛔ Action réservée au compte patron RYCKIEL.'); return; }
   var cibleJour = dateJour || jourSelectionneHistorique || dateAujourdhui();
   var indexTrouve = -1;
   for(var i = 0; i < stockHistorique.length; i++){
@@ -1471,6 +1490,7 @@ function supprimerMouvementStockParJour(idMouvement, dateJour){
 
   stockHistorique.splice(indexTrouve, 1);
   localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
+  jouerTonalite('suppression');
   afficher();
   notifier('🗑️ Mouvement du ' + cibleJour + ' supprimé');
 }
@@ -1497,6 +1517,7 @@ function soumettreStockFinJournee(){
     }
   });
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  jouerTonalite('stock');
   afficher();
   notifier('📨 Relevé envoyé au Patron');
 }
@@ -1513,13 +1534,14 @@ function validerStockFinJourneePatron(id){
   localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
   localStorage.setItem('rtk_caisse', String(caisse));
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  jouerTonalite('stock');
   afficher();
   notifier('✅ Stock Matinal validé');
 }
 
 function cloturerJourneeEquipe(){
   var u = getUser(), patron = isPatron(), auj = dateAujourdhui();
-  if(!patron && getClotureEmployeDuJour()){ alert('🔒 Journée déjà clôturée.'); return; }
+  if(!patron && getClotureEmployeDuJour()){ jouerTonalite('erreur'); alert('🔒 Journée déjà clôturée.'); return; }
   var stats = [], totNb = 0, totM = 0, totF = 0;
   employes.forEach(function(e){
     var nb = 0, m = 0, f = 0;
@@ -1530,6 +1552,7 @@ function cloturerJourneeEquipe(){
   if(!patron && deblocagesUrgenceJour[auj]){ delete deblocagesUrgenceJour[auj]; localStorage.setItem('rtk_deblocages_urgence', JSON.stringify(deblocagesUrgenceJour)); }
   cloturesEquipe.push({ id: Date.now(), date: auj, heure: heureActuelle(), cloturePar: u, clotureParRole: patron ? 'PATRON' : 'EMPLOYE', stats: stats, totalNb: totNb, totalMontant: totM, totalFrais: totF, message: MESSAGE_ENCOURAGEMENT });
   localStorage.setItem('rtk_clotures_equipe', JSON.stringify(cloturesEquipe));
+  jouerTonalite('cloture');
   afficher();
   notifier('🔒 Journée clôturée');
 }
@@ -1537,9 +1560,10 @@ function cloturerJourneeEquipe(){
 function envoyerRemarque(){
   var txt = document.getElementById('texteRemarque').value.trim();
   if(!txt) return;
-  remarquesEquipe.push({ id: 'rem_'+Date.now(), typeMessage: 'personnel', auteur: getUser(), destinataire: 'RYCKIEL', message: txt, date: dateAujourdhui(), heure: heureActuelle(), reponsePatron: '' });
+  remarquesEquipe.push({ id: 'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), typeMessage: 'personnel', auteur: getUser(), destinataire: 'RYCKIEL', message: txt, date: dateAujourdhui(), heure: heureActuelle(), reponsePatron: '' });
   localStorage.setItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe));
   document.getElementById('texteRemarque').value = '';
+  jouerTonalite('message');
   afficher();
   notifier('📨 Remarque envoyée');
 }
@@ -1550,9 +1574,10 @@ function envoyerMessagePatron(){
   var dest = mode === 'UNIQUE' ? document.getElementById('destUniquePatron').value : 'TOUS LES COMPTES';
   var txt = document.getElementById('texteMessagePatron').value.trim();
   if(!txt) return;
-  remarquesEquipe.push({ id: 'msg_'+Date.now(), typeMessage: mode === 'UNIQUE' ? 'unique' : 'commun', auteur: getUser(), destinataire: dest, message: txt, date: dateAujourdhui(), heure: heureActuelle() });
+  remarquesEquipe.push({ id: 'msg_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), typeMessage: mode === 'UNIQUE' ? 'unique' : 'commun', auteur: getUser(), destinataire: dest, message: txt, date: dateAujourdhui(), heure: heureActuelle() });
   localStorage.setItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe));
   document.getElementById('texteMessagePatron').value = '';
+  jouerTonalite('message');
   afficher();
   notifier('📨 Message envoyé');
 }
@@ -1562,7 +1587,33 @@ function repondreRemarque(id){
   var rep = document.getElementById('rep_' + id).value.trim();
   if(!rep) return;
   var r = remarquesEquipe.find(function(x){ return x.id === id; });
-  if(r){ r.reponsePatron = rep; r.heureReponse = heureActuelle(); localStorage.setItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe)); afficher(); notifier('✅ Réponse envoyée'); }
+  if(r){
+    r.reponsePatron = rep;
+    r.heureReponse = heureActuelle();
+    localStorage.setItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe));
+    jouerTonalite('message');
+    afficher();
+    notifier('✅ Réponse envoyée');
+  }
+}
+
+function supprimerMessageOuRemarque(id){
+  var u = getUser();
+  if(!u) return;
+  var idx = remarquesEquipe.findIndex(function(x){ return String(x.id) === String(id); });
+  if(idx === -1) return;
+  var item = remarquesEquipe[idx];
+  if(!isPatron() && norm(item.auteur) !== norm(u)){
+    jouerTonalite('erreur');
+    alert('⛔ Tu peux uniquement supprimer tes propres messages/remarques.');
+    return;
+  }
+  if(!confirm('Supprimer ce message de ' + item.auteur + ' ?')) return;
+  remarquesEquipe.splice(idx, 1);
+  localStorage.setItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe));
+  jouerTonalite('suppression');
+  afficher();
+  notifier('🗑️ Message supprimé');
 }
 
 function collecterDatesDisponibles(){
@@ -1790,12 +1841,12 @@ function validerModifEmploye(){
   if(!e) return;
   var nouveauNom = document.getElementById('editEmpNom').value.trim();
   var nouveauCode = document.getElementById('editEmpCode').value.trim();
-  if(!nouveauNom){ alert('❌ Nom requis'); return; }
-  if(!/^\d{4}$/.test(nouveauCode)){ alert('❌ Le code doit contenir exactement 4 chiffres'); return; }
+  if(!nouveauNom){ jouerTonalite('erreur'); alert('❌ Nom requis'); return; }
+  if(!/^\d{4}$/.test(nouveauCode)){ jouerTonalite('erreur'); alert('❌ Le code doit contenir exactement 4 chiffres'); return; }
 
   var doublonNom = employes.some(function(x, i){ return i !== idx && norm(x.nom) === norm(nouveauNom); });
   var doublonCode = employes.some(function(x, i){ return i !== idx && x.code === nouveauCode; });
-  if(doublonNom || doublonCode){ alert('❌ Ce nom ou ce code est déjà utilisé par un autre compte'); return; }
+  if(doublonNom || doublonCode){ jouerTonalite('erreur'); alert('❌ Ce nom ou ce code est déjà utilisé par un autre compte'); return; }
 
   var ancienCode = e.code;
   var ancienNom = e.nom;
@@ -1829,6 +1880,7 @@ function validerModifEmploye(){
   }
 
   ouvrirModalEmployes();
+  jouerTonalite('stock');
   afficher();
   notifier('✅ Employé modifié');
 }
@@ -1836,11 +1888,11 @@ function validerModifEmploye(){
 function ajouterEmploye(){
   if(!isPatron()) return;
   var nom = document.getElementById('newEmpNom').value.trim(), code = document.getElementById('newEmpCode').value.trim();
-  if(!nom || !/^\d{4}$/.test(code) || trouverEmploye(nom) || trouverParCode(code)){ alert('❌ Nom ou code (4 chiffres) invalide/déjà utilisé'); return; }
+  if(!nom || !/^\d{4}$/.test(code) || trouverEmploye(nom) || trouverParCode(code)){ jouerTonalite('erreur'); alert('❌ Nom ou code (4 chiffres) invalide/déjà utilisé'); return; }
   employes.push({ nom: nom, code: code, actif: true });
   localStorage.setItem('rtk_employes', JSON.stringify(employes));
   document.getElementById('newEmpNom').value = ''; document.getElementById('newEmpCode').value = '';
-  ouvrirModalEmployes(); afficher(); notifier('✅ Employé ajouté');
+  ouvrirModalEmployes(); jouerTonalite('stock'); afficher(); notifier('✅ Employé ajouté');
 }
 function basculerEmploye(i){ employes[i].actif = (employes[i].actif === false); localStorage.setItem('rtk_employes', JSON.stringify(employes)); ouvrirModalEmployes(); afficher(); }
 
@@ -1866,7 +1918,7 @@ function sauverModifForfait(){
   if(!nom || prix <= 0) return;
   forfaitsConfig[idx] = { type: typeF, nom: nom, prix: prix, icone: typeF==='SMS'?'💬':(typeF==='Minutes'?'📞':'🌐') };
   localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
-  peuplerSelectForfaits(); fermerModal('modalForfaits'); notifier('✅ Tarif mis à jour');
+  peuplerSelectForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Tarif mis à jour');
 }
 function ajouterNouveauForfait(){
   var typeF = document.getElementById('modForfaitType').value;
@@ -1875,7 +1927,7 @@ function ajouterNouveauForfait(){
   if(!nom || prix <= 0) return;
   forfaitsConfig.push({ type: typeF, nom: nom, prix: prix, icone: typeF==='SMS'?'💬':(typeF==='Minutes'?'📞':'🌐') });
   localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
-  peuplerSelectForfaits(); fermerModal('modalForfaits'); notifier('✅ Nouveau forfait ajouté');
+  peuplerSelectForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Nouveau forfait ajouté');
 }
 
 function ouvrirModalSuppression(){
@@ -1889,20 +1941,20 @@ function ouvrirModalSuppression(){
   ouvrirModal('modalSuppression');
 }
 function confirmerSuppression(){
-  if(document.getElementById('codeConfirmSupp').value.trim() !== getCodePatron()){ alert('❌ Code Patron incorrect'); return; }
+  if(document.getElementById('codeConfirmSupp').value.trim() !== getCodePatron()){ jouerTonalite('erreur'); alert('❌ Code Patron incorrect'); return; }
   var choix = document.getElementById('choixSupp').value;
   employes.forEach(function(e){
     var sac = chargerSac(e.code);
     if(choix === 'TOUT' || norm(e.nom) === norm(choix)){ sac.forEach(function(v){ corbeille.push(v); }); sauverSac(e.code, []); }
   });
   localStorage.setItem('rtk_corbeille', JSON.stringify(corbeille));
-  fermerModal('modalSuppression'); afficher(); notifier('🗑️ Déplacé vers Corbeille');
+  fermerModal('modalSuppression'); jouerTonalite('suppression'); afficher(); notifier('🗑️ Déplacé vers Corbeille');
 }
 function restaurerCorbeille(idx){
   var item = corbeille[idx], sac = chargerSac(item.vendeurCode || getCode());
   sac.push(item); sauverSac(item.vendeurCode || getCode(), sac); corbeille.splice(idx, 1);
   localStorage.setItem('rtk_corbeille', JSON.stringify(corbeille));
-  ouvrirModalSuppression(); afficher(); notifier('↩️ Restauré');
+  ouvrirModalSuppression(); jouerTonalite('stock'); afficher(); notifier('↩️ Restauré');
 }
 
 function exporterCSV(){
@@ -1924,7 +1976,7 @@ function declencherImportJSON(){ document.getElementById('inputImportJson').clic
 function traiterFichierImportJson(ev){
   var f = ev.target.files && ev.target.files[0]; if(!f) return;
   var r = new FileReader();
-  r.onload = function(e){ try{ appliquerEtatDepuisCloud(JSON.parse(e.target.result)); pousserVersCloud(); notifier('✅ Restauré'); }catch(err){ alert('❌ JSON invalide'); } };
+  r.onload = function(e){ try{ appliquerEtatDepuisCloud(JSON.parse(e.target.result)); pousserVersCloud(); jouerTonalite('stock'); notifier('✅ Restauré'); }catch(err){ jouerTonalite('erreur'); alert('❌ JSON invalide'); } };
   r.readAsText(f, 'UTF-8');
 }
 
@@ -2104,10 +2156,14 @@ function afficher(){
     return r.typeMessage === 'commun' || (r.typeMessage === 'unique' && norm(r.destinataire) === norm(u)) || norm(r.auteur) === norm(u);
   });
   document.getElementById('badgeRemarques').textContent = remVis.length;
-  document.getElementById('listeRemarques').innerHTML = remVis.slice().reverse().slice(0, 15).map(function(r){
+  document.getElementById('listeRemarques').innerHTML = remVis.slice().reverse().slice(0, 30).map(function(r){
+    var peutSuppr = patron || norm(r.auteur) === norm(u);
+    var btnSupprMsg = peutSuppr
+      ? '<button type="button" class="btn-del-msg" onclick="supprimerMessageOuRemarque(\'' + String(r.id) + '\')" title="Supprimer">🗑️ Supprimer</button>'
+      : '';
     var repHtml = r.reponsePatron ? '<div style="margin-top:6px;padding:6px 8px;background:#FFFBEB;border-left:3px solid #F59E0B;border-radius:6px;font-size:12px"><b>👑 RYCKIEL :</b> ' + r.reponsePatron + '</div>' : '';
     var formRep = (patron && r.typeMessage === 'personnel') ? '<div style="display:flex;gap:6px;margin-top:6px"><input id="rep_' + r.id + '" placeholder="Répondre..." style="margin:0;padding:8px;font-size:12px"><button class="btn-sm btn-green" onclick="repondreRemarque(\'' + r.id + '\')">↩️</button></div>' : '';
-    return '<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;font-size:13px"><b>' + r.auteur + '</b> <small style="color:var(--muted)">' + r.heure + '</small><div>' + r.message + '</div>' + repHtml + formRep + '</div>';
+    return '<div class="msg-card"><div class="msg-head"><div><b>' + r.auteur + '</b> <small style="color:var(--muted)">' + (r.date ? r.date + ' ' : '') + r.heure + '</small></div>' + btnSupprMsg + '</div><div style="margin-top:4px">' + r.message + '</div>' + repHtml + formRep + '</div>';
   }).join('');
 }
 

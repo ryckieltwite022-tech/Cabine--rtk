@@ -76,6 +76,20 @@ button:disabled{background:#CBD5E1;color:#64748B;cursor:not-allowed}
 .btn-ghost{background:#F1F5F9;color:#334155}
 .btn-sm{padding:8px 11px;font-size:12px;border-radius:9px;width:auto}
 
+.alerte-honnete-rouge{
+  display:none;
+  background:#DC2626;
+  color:#FFFFFF;
+  border:2px solid #991B1B;
+  border-radius:14px;
+  padding:12px 14px;
+  margin-bottom:12px;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.35;
+  box-shadow:0 4px 12px rgba(220,38,38,.28);
+}
+
 .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
 .type-pill{
   padding:10px 4px;border-radius:12px;border:1.5px solid var(--border);background:#F8FAFC;
@@ -292,6 +306,10 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 
 <!-- ONGLET 1 : OPÉRATION -->
 <section id="tab-op" class="tab-view active">
+  <div id="alerteHonneteDepotRetrait" class="alerte-honnete-rouge" role="alert">
+    🚨 Sois honnête ce que tu fais est visible dans tous les comptes.
+  </div>
+
   <div class="install-banner" id="bannerInstall">
     <span>📲 Installer Cabine RTK sur cet appareil</span>
     <button class="btn-sm btn-green" onclick="installerAppPWA()">Installer</button>
@@ -1122,6 +1140,13 @@ var PREFIXES = {
   'Africell': ['090','091']
 };
 
+function majAlerteHonneteDepotRetrait(){
+  var banner = document.getElementById('alerteHonneteDepotRetrait');
+  if(!banner) return;
+  var montrer = (typeOpActuel === 'Dépôt - Transfert Monnaie' || typeOpActuel === 'Retrait');
+  banner.style.display = montrer ? 'block' : 'none';
+}
+
 function nettoyerNumero(num){
   var n = (num||'').replace(/\D/g,'');
   if(n.indexOf('243') === 0 && n.length >= 12) n = '0' + n.slice(3);
@@ -1179,6 +1204,7 @@ function choisirCategorieForfait(cat){
 function choisirTypeOp(type){
   if(verifierBlocage()) return;
   typeOpActuel = type;
+  majAlerteHonneteDepotRetrait();
   document.getElementById('opAutreService').value = '';
   document.getElementById('pill-depot').classList.toggle('active', type === 'Dépôt - Transfert Monnaie');
   document.getElementById('pill-retrait').classList.toggle('active', type === 'Retrait');
@@ -1217,6 +1243,7 @@ function choisirAutreService(){
   var val = document.getElementById('opAutreService').value;
   if(!val){ choisirTypeOp('Dépôt - Transfert Monnaie'); return; }
   typeOpActuel = val;
+  majAlerteHonneteDepotRetrait();
   ['pill-depot','pill-retrait','pill-unites','pill-forfait'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
   document.getElementById('zoneReseau').style.display = 'none';
   document.getElementById('zoneUnites').style.display = 'none';
@@ -1396,12 +1423,27 @@ function enregistrerOperation(){
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
     } else if(typeOpActuel === 'Retrait'){
       if(caisse < m){ jouerTonalite('erreur'); alert('⛔ Caisse espèces insuffisante pour ce retrait !'); return; }
+      var avStkRetrait = Number(stockMoney[reseau] || 0);
       caisse -= m;
-      stockMoney[reseau] = (stockMoney[reseau] || 0) + m;
+      stockMoney[reseau] = avStkRetrait + m;
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + reseau + ': ' + Number(stockMoney[reseau]).toLocaleString() + ' FC';
       caisseHistorique.push({ qui: emp.nom, action: 'retrancher', montant: m, motif: 'Retrait ' + reseau + ' (' + n + ')', avant: caisse + m, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
+      stockHistorique.push({
+        id: 'ret_stk_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        qui: emp.nom,
+        action: 'retrait',
+        type: 'money',
+        reseau: reseau,
+        montant: m,
+        motif: 'Retrait ' + reseau + ' (' + n + ')',
+        avant: avStkRetrait,
+        apres: stockMoney[reseau],
+        date: dateAujourdhui(),
+        heure: heureActuelle()
+      });
       localStorage.setItem('rtk_caisse', String(caisse));
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
+      localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
     } else if(typeOpActuel === 'Recharge Unités'){
       var nbUnit = Math.floor(m / PRIX_UNITE_FC);
       if((stockUnites[reseau] || 0) < nbUnit){ jouerTonalite('erreur'); alert('⛔ Stock unités ' + reseau + ' insuffisant !'); return; }
@@ -1561,7 +1603,7 @@ function supprimerMouvementStockParJour(idMouvement, dateJour){
     return;
   }
   var mvt = stockHistorique[indexTrouve];
-  if(!confirm('Supprimer ce mouvement de stock du ' + cibleJour + ' (' + (mvt.reseau || '') + ' • ' + Number(mvt.montant || 0).toLocaleString() + ') ?')) return;
+  if(!confirm('Supprimer ce mouvement du ' + cibleJour + ' (' + (mvt.reseau || '') + ' • ' + Number(mvt.montant || 0).toLocaleString() + ') ?')) return;
 
   stockHistorique.splice(indexTrouve, 1);
   localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
@@ -2174,6 +2216,7 @@ function afficher(){
   var patron = isPatron(), auj = dateAujourdhui();
   if(!jourSelectionneHistorique) jourSelectionneHistorique = auj;
 
+  majAlerteHonneteDepotRetrait();
   document.getElementById('bonjour').textContent = (patron ? '👑 ' : '👤 ') + u;
   document.getElementById('titreMiniResume').textContent = '📊 Résumé Équipe (Aujourd\'hui)';
   document.getElementById('zoneLienPatron').style.display = patron ? 'block' : 'none';
@@ -2259,13 +2302,14 @@ function afficher(){
     if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
     var apresVal = Number(h.apres || 0);
     var petiteStk = 'Total après ' + h.action + ': ' + apresVal.toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
+    var iconeMvt = (h.action === 'retrait') ? '💵 Retrait' : ('📦 Stock ' + h.action.toUpperCase());
     tousMouvements.push({
       tri: h.id || '',
-      titre: '📦 Stock ' + h.action.toUpperCase() + ' • ' + h.reseau,
+      titre: iconeMvt + ' • ' + h.reseau,
       badge: '<span class="badge b-amber">' + h.qui + '</span>',
       sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
       petiteTotalite: petiteStk,
-      montantTxt: Number(h.montant).toLocaleString(),
+      montantTxt: Number(h.montant).toLocaleString() + (h.type === 'money' ? ' CDF' : ''),
       fraisTxt: ''
     });
   });

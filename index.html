@@ -543,6 +543,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
       <option value="money">💰 Stock Mobile Money</option>
       <option value="unites">📱 Stock Unités</option>
       <option value="caisse">💵 Caisse Espèces</option>
+      <option value="frais">💰 Caisse Frais (Cumul)</option>
     </select>
     <div id="stkZoneReseau">
       <label>Réseau</label>
@@ -1420,7 +1421,7 @@ function majChampsModalStock(){
   var cible = document.getElementById('stkCible').value;
   var zone = document.getElementById('stkZoneReseau');
   var sel = document.getElementById('stkReseau');
-  if(cible === 'caisse'){ zone.style.display = 'none'; return; }
+  if(cible === 'caisse' || cible === 'frais'){ zone.style.display = 'none'; return; }
   zone.style.display = 'block';
   sel.innerHTML = cible === 'money'
     ? '<option value="Airtel Money">Airtel Money</option><option value="Orange Money">Orange Money</option><option value="M-Pesa Vodacom">M-Pesa Vodacom</option><option value="Africell Money">Africell Money</option>'
@@ -1435,9 +1436,11 @@ function validerAjustementStockCaisse(){
   var cible = document.getElementById('stkCible').value;
   var action = document.getElementById('stkAction').value;
   var reseau = document.getElementById('stkReseau').value;
-  var m = Number(document.getElementById('stkMontant').value || 0);
+  var rawM = document.getElementById('stkMontant').value.trim();
+  var m = Number(rawM);
   var motif = document.getElementById('stkMotif').value.trim();
-  if(m <= 0 || !motif){ jouerTonalite('erreur'); alert('❌ Montant et motif requis'); return; }
+  var montantValide = (action === 'remplacer') ? (rawM !== '' && !isNaN(m) && m >= 0) : (!isNaN(m) && m > 0);
+  if(!montantValide || !motif){ jouerTonalite('erreur'); alert('❌ Montant et motif requis'); return; }
 
   if(cible === 'caisse'){
     if(action === 'retrancher' && m > caisse){ jouerTonalite('erreur'); alert('⛔ Caisse insuffisante'); return; }
@@ -1446,6 +1449,13 @@ function validerAjustementStockCaisse(){
     caisseHistorique.push({ qui: emp.nom, action: action, montant: m, motif: motif, avant: avC, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_caisse', String(caisse));
     localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
+  } else if(cible === 'frais'){
+    if(action === 'retrancher' && m > caisseFrais){ jouerTonalite('erreur'); alert('⛔ Caisse Frais insuffisante'); return; }
+    var avF = caisseFrais;
+    caisseFrais = action === 'ajouter' ? caisseFrais + m : (action === 'retrancher' ? caisseFrais - m : m);
+    fraisHistorique.push({ qui: emp.nom, action: action, service: 'Ajustement Caisse Frais', detail: motif, montant: m, motif: motif, avant: avF, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
+    localStorage.setItem('rtk_caisse_frais', String(caisseFrais));
+    localStorage.setItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
   } else if(cible === 'money'){
     var avM = stockMoney[reseau] || 0;
     if(action === 'retrancher' && m > avM){ jouerTonalite('erreur'); alert('⛔ Stock insuffisant'); return; }

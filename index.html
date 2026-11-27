@@ -1786,6 +1786,8 @@ function ouvrirRapport(dateCible){
   employes.forEach(function(e){ chargerSac(e.code).forEach(function(v){ if(v.date === jour) tout.push(v); }); });
 
   var totMonnaie = 0, nbMonnaie = 0;
+  var totDepots = 0, nbDepots = 0;
+  var totRetraits = 0, nbRetraits = 0;
   var totUnites = 0, nbUnites = 0;
   var totForfait = 0, nbForfait = 0;
   var totAutres = 0, nbAutres = 0;
@@ -1803,9 +1805,11 @@ function ouvrirRapport(dateCible){
 
     if(v.service === 'Dépôt - Transfert Monnaie'){
       totMonnaie += m; nbMonnaie++;
+      totDepots += m; nbDepots++;
       fraisDepot += f;
     } else if(v.service === 'Retrait'){
       totMonnaie += m; nbMonnaie++;
+      totRetraits += m; nbRetraits++;
     } else if(v.service === 'Recharge Unités'){
       totUnites += m; nbUnites++;
     } else if(v.service === 'Recharge Forfait'){
@@ -1851,6 +1855,7 @@ function ouvrirRapport(dateCible){
     "💵 *Caisse Espèces : " + caisseVal.toLocaleString() + " CDF*\n" +
     "💰 *Caisse Frais : " + caisseFraisVal.toLocaleString() + " CDF*\n" +
     "💳 *Frais de dépôt (" + jour + ") : " + fraisDepot.toLocaleString() + " CDF*\n" +
+    "💵 *Retraits du jour (" + jour + ") : " + totRetraits.toLocaleString() + " CDF (" + nbRetraits + " op.)*\n" +
     "-----------------------------\n" +
     "📲 *SOLDES SIM MONEY :*\n" + lignesMoneyTxt +
     "➡️ *Total SIM Money : " + totalSimMoney.toLocaleString() + " CDF*\n" +
@@ -1891,6 +1896,8 @@ function ouvrirRapport(dateCible){
 
     '<div class="rapport-section-title">📊 Opérations du ' + jour + '</div>' +
     '<div class="rapport-line"><span>💰 Mouvement Monnaie (' + nbMonnaie + ')</span><b>' + totMonnaie.toLocaleString() + ' CDF</b></div>' +
+    '<div class="rapport-line" style="padding-left:12px;font-size:12px"><span>↳ Dépôts (' + nbDepots + ')</span><b>' + totDepots.toLocaleString() + ' CDF</b></div>' +
+    '<div class="rapport-line" style="padding-left:12px;font-size:12px"><span>↳ Retraits (' + nbRetraits + ')</span><b>' + totRetraits.toLocaleString() + ' CDF</b></div>' +
     '<div class="rapport-line"><span>📱 Mouvement Unités (' + nbUnites + ')</span><b>' + totUnites.toLocaleString() + ' CDF</b></div>' +
     '<div class="rapport-line"><span>📦 Mouvement Forfait (' + nbForfait + ')</span><b>' + totForfait.toLocaleString() + ' CDF</b></div>' +
     (nbAutres > 0 ? '<div class="rapport-line"><span>🔧 Autres (' + nbAutres + ')</span><b>' + totAutres.toLocaleString() + ' CDF</b></div>' : '') +
@@ -2302,15 +2309,16 @@ function afficher(){
     if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
     var apresVal = Number(h.apres || 0);
     var petiteStk = 'Total après ' + h.action + ': ' + apresVal.toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
-    var iconeMvt = (h.action === 'retrait') ? '💵 Retrait' : ('📦 Stock ' + h.action.toUpperCase());
+    var estRetrait = (h.action === 'retrait');
+    var iconeMvt = estRetrait ? '💵 Retrait Money' : ('📦 Stock ' + String(h.action || '').toUpperCase());
     tousMouvements.push({
       tri: h.id || '',
-      titre: iconeMvt + ' • ' + h.reseau,
-      badge: '<span class="badge b-amber">' + h.qui + '</span>',
-      sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
+      titre: iconeMvt + ' • ' + (h.reseau || ''),
+      badge: '<span class="badge ' + (estRetrait ? 'b-blue' : 'b-amber') + '">' + h.qui + '</span>',
+      sousTitre: (h.motif || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
       petiteTotalite: petiteStk,
       montantTxt: Number(h.montant).toLocaleString() + (h.type === 'money' ? ' CDF' : ''),
-      fraisTxt: ''
+      fraisTxt: estRetrait ? '0 frais' : ''
     });
   });
 

@@ -120,19 +120,29 @@ button:disabled{background:#CBD5E1;color:#64748B;cursor:not-allowed}
 details.toggle-card > summary{
   list-style:none;
   cursor:pointer;
-  font-size:15px;
+  font-size:14px;
   font-weight:800;
   color:var(--primary-dark);
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  padding:4px 0;
+  padding:6px 0;
   user-select:none;
 }
 details.toggle-card > summary::-webkit-details-marker{display:none}
 details.toggle-card[open] > summary{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .toggle-hint{font-size:11px;font-weight:700;color:var(--primary);background:#EEF2FF;padding:3px 9px;border-radius:99px;white-space:nowrap}
+
+.forfait-editor-box{
+  background:#F8FAFC;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;
+}
+.forfait-filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.forfait-list-item{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;margin-bottom:6px;font-size:13px;
+}
+.forfait-actions{display:flex;gap:6px;flex-shrink:0}
 
 .alert-bar{
   margin:10px 12px 0;padding:10px 12px;border-radius:12px;font-size:12px;font-weight:700;
@@ -331,6 +341,49 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
       </div>
       <label id="lblChoixForfait">2. Forfaits SMS uniquement :</label>
       <select id="opChoixForfait" onchange="majFraisEtResume()"></select>
+
+      <div class="card" style="margin-top:10px;padding:12px;background:#F8FAFC">
+        <details class="toggle-card" id="toggleTousForfaitsOp" open>
+          <summary>
+            <span>⚙️ Tous les Forfaits (Minutes, Internet, SMS) <span class="badge b-blue" id="badgeNbForfaitsTotal">0</span></span>
+            <span class="toggle-hint">Ouverture / Fermeture</span>
+          </summary>
+
+          <div class="forfait-editor-box">
+            <b id="titreFormForfait" style="display:block;font-size:13px;color:var(--primary-dark);margin-bottom:8px">➕ Ajouter un forfait</b>
+            <input type="hidden" id="editForfaitIndex" value="">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div>
+                <label>Catégorie</label>
+                <select id="formForfaitType" style="margin-bottom:8px">
+                  <option value="Minutes">📞 Forfait Minutes</option>
+                  <option value="Internet">🌐 Forfait Internet</option>
+                  <option value="SMS">💬 Forfait SMS</option>
+                </select>
+              </div>
+              <div>
+                <label>Prix (CDF)</label>
+                <input id="formForfaitPrix" type="number" inputmode="numeric" placeholder="Ex: 1000" style="margin-bottom:8px">
+              </div>
+            </div>
+            <label>Nom du forfait</label>
+            <input id="formForfaitNom" placeholder="Ex: Internet 1.5 Go / SMS 200 / Min 10" style="margin-bottom:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn-green btn-sm" id="btnValiderForfait" onclick="validerFormulaireForfait()">➕ Ajouter</button>
+              <button type="button" class="btn-ghost btn-sm" id="btnAnnulerEditForfait" style="display:none" onclick="annulerEditionForfait()">Annuler</button>
+            </div>
+          </div>
+
+          <div class="forfait-filter-tabs">
+            <button type="button" class="btn-sm btn-soft" id="filtreForfait-TOUS" onclick="choisirFiltreListeForfaits('TOUS')">Tous</button>
+            <button type="button" class="btn-sm btn-ghost" id="filtreForfait-Minutes" onclick="choisirFiltreListeForfaits('Minutes')">📞 Minutes</button>
+            <button type="button" class="btn-sm btn-ghost" id="filtreForfait-Internet" onclick="choisirFiltreListeForfaits('Internet')">🌐 Internet</button>
+            <button type="button" class="btn-sm btn-ghost" id="filtreForfait-SMS" onclick="choisirFiltreListeForfaits('SMS')">💬 SMS</button>
+          </div>
+
+          <div id="listeGestionForfaits"></div>
+        </details>
+      </div>
     </div>
 
     <div class="info-strip" id="stripFrais">
@@ -452,7 +505,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <details class="toggle-card" id="toggleLienApp">
       <summary>
         <span>🔗 Lien de Partage &amp; Installation</span>
-        <span class="toggle-hint">Ouvrir / Fermer</span>
+        <span class="toggle-hint">Ouverture / Fermer</span>
       </summary>
       <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Envoie ce lien à tes employés sur WhatsApp pour qu'ils ouvrent et installent l'application :</p>
       <div style="display:flex;gap:8px">
@@ -490,7 +543,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <details class="toggle-card" id="toggleMessages">
       <summary>
         <span>💬 Messages &amp; Remarques <span class="badge b-blue" id="badgeRemarques">0</span></span>
-        <span class="toggle-hint">Ouvrir / Fermer</span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
       </summary>
       <div id="boxEnvoiRemarque">
         <textarea id="texteRemarque" placeholder="Écrire une remarque à RYCKIEL..."></textarea>
@@ -651,8 +704,6 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 <script>
-// === TONALITÉS SUR MOUVEMENTS MÉTIER UNIQUEMENT ===
-// Pas de son sur : clic d'onglet, ouverture/fermeture de modale ou <details>, saisie clavier, ou synchro cloud passive.
 var _audioCtx = null;
 function getAudioCtx(){
   try{
@@ -687,7 +738,6 @@ function jouerNote(freq, dureeSec, delaiSec, typeOnde, gainMax){
   } catch(e){}
 }
 function jouerTonalite(genre){
-  // genre : 'operation' | 'stock' | 'message' | 'cloture' | 'suppression' | 'erreur'
   if(genre === 'operation'){
     jouerNote(659.25, 0.11, 0, 'triangle', 0.16);
     jouerNote(880.00, 0.16, 0.09, 'triangle', 0.16);
@@ -710,7 +760,6 @@ function jouerTonalite(genre){
   }
 }
 
-// === PWA MANIFEST & INSTALLATION ===
 (function initPWA(){
   var link = document.querySelector('link[rel="manifest"]');
   if(!link){
@@ -733,7 +782,6 @@ function installerAppPWA(){
   deferredPromptPWA.userChoice.then(function(){ deferredPromptPWA = null; document.getElementById('bannerInstall').style.display = 'none'; });
 }
 
-// === FIREBASE TEMPS RÉEL + TRANSACTIONS + FILE HORS-LIGNE ===
 var firebaseConfig = {
   apiKey: "AIzaSyAgPaAnEs5y0PPo__UyB-28pskGqnHTaws",
   authDomain: "cabine-app-2830b.firebaseapp.com",
@@ -750,6 +798,7 @@ var NUMERO_PATRON_WHATSAPP = "243971986598";
 var MESSAGE_ENCOURAGEMENT = "💪 Bravo à toute l'équipe RTK ! Chaque effort compte. Rendez-vous demain encore plus forts !";
 var PRIX_UNITE_FC = 25;
 var jourSelectionneHistorique = null;
+var filtreListeForfaitsActif = 'TOUS';
 
 function majStatutSync(txt){
   var b1 = document.getElementById('syncBadge');
@@ -815,6 +864,7 @@ var stockHistorique = JSON.parse(localStorage.getItem('rtk_stock_historique') ||
 stockHistorique.forEach(function(h, idx){ if(!h.id) h.id = 'stk_hist_' + idx + '_' + (h.heure || '00'); });
 var caisseHistorique = JSON.parse(localStorage.getItem('rtk_caisse_historique') || '[]');
 var fraisHistorique = JSON.parse(localStorage.getItem('rtk_frais_historique') || '[]');
+fraisHistorique.forEach(function(h, idx){ if(!h.id) h.id = 'frs_hist_' + idx + '_' + (h.heure || '00'); });
 var deblocagesHistorique = JSON.parse(localStorage.getItem('rtk_deblocages_historique') || '[]');
 var remarquesEquipe = JSON.parse(localStorage.getItem('rtk_remarques_equipe') || '[]');
 var relevesStockFinJournee = JSON.parse(localStorage.getItem('rtk_stock_fin_journee') || '[]');
@@ -939,7 +989,7 @@ function appliquerEtatDepuisCloud(data){
   blocageSync = true;
   try{
     if(Array.isArray(data.employes) && data.employes.length){ employes = data.employes; _origSetItem('rtk_employes', JSON.stringify(employes)); }
-    if(Array.isArray(data.forfaitsConfig) && data.forfaitsConfig.length){ forfaitsConfig = normaliserForfaits(data.forfaitsConfig); _origSetItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig)); peuplerSelectForfaits(); }
+    if(Array.isArray(data.forfaitsConfig) && data.forfaitsConfig.length){ forfaitsConfig = normaliserForfaits(data.forfaitsConfig); _origSetItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig)); peuplerSelectForfaits(); rendreGestionForfaits(); }
     if(data.sacs){ for(var c in data.sacs) _origSetItem('rtk_sac_'+c, JSON.stringify(data.sacs[c] || [])); }
     if(data.sacsEchec){ for(var ce in data.sacsEchec) _origSetItem('rtk_sac_echec_'+ce, JSON.stringify(data.sacsEchec[ce] || [])); }
     if(Array.isArray(data.corbeille)){ corbeille = data.corbeille; _origSetItem('rtk_corbeille', JSON.stringify(corbeille)); }
@@ -955,7 +1005,13 @@ function appliquerEtatDepuisCloud(data){
       _origSetItem('rtk_stock_historique', JSON.stringify(stockHistorique));
     }
     if(Array.isArray(data.caisseHistorique)){ caisseHistorique = data.caisseHistorique; _origSetItem('rtk_caisse_historique', JSON.stringify(caisseHistorique)); }
-    if(Array.isArray(data.fraisHistorique)){ fraisHistorique = data.fraisHistorique; _origSetItem('rtk_frais_historique', JSON.stringify(fraisHistorique)); }
+    if(Array.isArray(data.fraisHistorique)){
+      fraisHistorique = data.fraisHistorique.map(function(h, idx){
+        if(!h.id) h.id = 'frs_hist_' + idx + '_' + (h.heure || '00');
+        return h;
+      });
+      _origSetItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
+    }
     if(Array.isArray(data.remarquesEquipe)){ remarquesEquipe = data.remarquesEquipe; _origSetItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe)); }
     if(Array.isArray(data.relevesStockFinJournee)){ relevesStockFinJournee = data.relevesStockFinJournee; _origSetItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee)); }
     if(Array.isArray(data.cloturesEquipe)){ cloturesEquipe = data.cloturesEquipe; _origSetItem('rtk_clotures_equipe', JSON.stringify(cloturesEquipe)); }
@@ -1142,7 +1198,10 @@ function choisirTypeOp(type){
   if(det && det !== 'Inconnu') selectionnerReseauDansSelect(det);
 
   if(type === 'Recharge Forfait'){
+    var panneauForfaits = document.getElementById('toggleTousForfaitsOp');
+    if(panneauForfaits) panneauForfaits.open = true;
     choisirCategorieForfait(categorieForfaitActive);
+    rendreGestionForfaits();
   } else if(type === 'Recharge Unités'){
     onSaisieMontant();
   } else {
@@ -1375,7 +1434,7 @@ function enregistrerOperation(){
 
   if(frais > 0){
     caisseFrais += frais;
-    fraisHistorique.push({ qui: emp.nom, action: 'ajouter', service: typeOpActuel, detail: detail, montant: frais, numero: n, montantOp: m, motif: 'Frais ' + typeOpActuel, avant: caisseFrais - frais, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
+    fraisHistorique.push({ id: 'frs_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: 'ajouter', service: typeOpActuel, detail: detail, montant: frais, numero: n, montantOp: m, motif: 'Frais ' + typeOpActuel, avant: caisseFrais - frais, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_caisse_frais', String(caisseFrais));
     localStorage.setItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
   }
@@ -1453,7 +1512,7 @@ function validerAjustementStockCaisse(){
     if(action === 'retrancher' && m > caisseFrais){ jouerTonalite('erreur'); alert('⛔ Caisse Frais insuffisante'); return; }
     var avF = caisseFrais;
     caisseFrais = action === 'ajouter' ? caisseFrais + m : (action === 'retrancher' ? caisseFrais - m : m);
-    fraisHistorique.push({ qui: emp.nom, action: action, service: 'Ajustement Caisse Frais', detail: motif, montant: m, motif: motif, avant: avF, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
+    fraisHistorique.push({ id: 'frs_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: action, service: 'Ajustement Caisse Frais', detail: motif, montant: m, motif: motif, avant: avF, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_caisse_frais', String(caisseFrais));
     localStorage.setItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
   } else if(cible === 'money'){
@@ -1634,6 +1693,7 @@ function collecterDatesDisponibles(){
   });
   stockHistorique.forEach(function(h){ if(h.date) setDates[h.date] = true; });
   caisseHistorique.forEach(function(h){ if(h.date) setDates[h.date] = true; });
+  fraisHistorique.forEach(function(h){ if(h.date) setDates[h.date] = true; });
   var liste = Object.keys(setDates);
   liste.sort(function(a, b){
     if(a === dateAujourdhui()) return -1;
@@ -1814,6 +1874,113 @@ function peuplerSelectForfaits(){
   }).join('');
 }
 
+function choisirFiltreListeForfaits(cat){
+  filtreListeForfaitsActif = cat;
+  ['TOUS','Minutes','Internet','SMS'].forEach(function(k){
+    var btn = document.getElementById('filtreForfait-' + k);
+    if(btn){
+      btn.className = (k === cat) ? 'btn-sm btn-soft' : 'btn-sm btn-ghost';
+    }
+  });
+  rendreGestionForfaits();
+}
+
+function preparerEditionForfait(idx){
+  var f = forfaitsConfig[idx];
+  if(!f) return;
+  document.getElementById('editForfaitIndex').value = String(idx);
+  document.getElementById('formForfaitType').value = f.type || 'Minutes';
+  document.getElementById('formForfaitNom').value = f.nom || '';
+  document.getElementById('formForfaitPrix').value = f.prix || '';
+  document.getElementById('titreFormForfait').textContent = '✏️ Modifier le forfait #' + (idx + 1);
+  document.getElementById('btnValiderForfait').textContent = '💾 Enregistrer';
+  document.getElementById('btnAnnulerEditForfait').style.display = 'inline-block';
+  document.getElementById('formForfaitNom').focus();
+}
+
+function annulerEditionForfait(){
+  document.getElementById('editForfaitIndex').value = '';
+  document.getElementById('formForfaitNom').value = '';
+  document.getElementById('formForfaitPrix').value = '';
+  document.getElementById('titreFormForfait').textContent = '➕ Ajouter un forfait';
+  document.getElementById('btnValiderForfait').textContent = '➕ Ajouter';
+  document.getElementById('btnAnnulerEditForfait').style.display = 'none';
+}
+
+function validerFormulaireForfait(){
+  var typeF = document.getElementById('formForfaitType').value || 'Minutes';
+  var nom = document.getElementById('formForfaitNom').value.trim();
+  var prix = Number(document.getElementById('formForfaitPrix').value || 0);
+  if(!nom || !prix || prix <= 0){
+    jouerTonalite('erreur');
+    alert('❌ Saisis un nom de forfait et un prix valide (supérieur à 0).');
+    return;
+  }
+  var iconeF = typeF === 'SMS' ? '💬' : (typeF === 'Minutes' ? '📞' : '🌐');
+  var idxRaw = document.getElementById('editForfaitIndex').value;
+  if(idxRaw !== ''){
+    var idx = Number(idxRaw);
+    if(forfaitsConfig[idx]){
+      forfaitsConfig[idx] = { type: typeF, nom: nom, prix: prix, icone: iconeF };
+      notifier('✅ Forfait modifié');
+    }
+  } else {
+    forfaitsConfig.push({ type: typeF, nom: nom, prix: prix, icone: iconeF });
+    notifier('✅ Nouveau forfait ajouté');
+  }
+  localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
+  annulerEditionForfait();
+  peuplerSelectForfaits();
+  rendreGestionForfaits();
+  jouerTonalite('stock');
+}
+
+function supprimerForfait(idx){
+  var f = forfaitsConfig[idx];
+  if(!f) return;
+  if(!confirm('Supprimer le forfait [' + f.type + '] ' + f.nom + ' (' + Number(f.prix).toLocaleString() + ' FC) ?')) return;
+  forfaitsConfig.splice(idx, 1);
+  localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
+  if(document.getElementById('editForfaitIndex').value === String(idx)){
+    annulerEditionForfait();
+  }
+  peuplerSelectForfaits();
+  rendreGestionForfaits();
+  jouerTonalite('suppression');
+  notifier('🗑️ Forfait supprimé');
+}
+
+function rendreGestionForfaits(){
+  var badge = document.getElementById('badgeNbForfaitsTotal');
+  if(badge) badge.textContent = String(forfaitsConfig.length);
+  var cont = document.getElementById('listeGestionForfaits');
+  if(!cont) return;
+
+  var paires = [];
+  forfaitsConfig.forEach(function(f, idx){
+    if(filtreListeForfaitsActif === 'TOUS' || f.type === filtreListeForfaitsActif){
+      paires.push({ forfait: f, index: idx });
+    }
+  });
+
+  if(!paires.length){
+    cont.innerHTML = '<small style="color:var(--muted)">Aucun forfait dans cette catégorie.</small>';
+    return;
+  }
+
+  cont.innerHTML = paires.map(function(p){
+    var f = p.forfait;
+    var i = p.index;
+    return '<div class="forfait-list-item">' +
+      '<div><b>' + (f.icone || '📦') + ' [' + f.type + '] ' + f.nom + '</b>' +
+      '<small style="display:block;color:var(--primary-dark);font-weight:800">' + Number(f.prix).toLocaleString() + ' CDF</small></div>' +
+      '<div class="forfait-actions">' +
+      '<button type="button" class="btn-sm btn-soft" onclick="preparerEditionForfait(' + i + ')">✏️ Modifier</button>' +
+      '<button type="button" class="btn-sm btn-red" onclick="supprimerForfait(' + i + ')">🗑️ Supprimer</button>' +
+      '</div></div>';
+  }).join('');
+}
+
 function ouvrirModalEmployes(){
   if(!isPatron()) return;
   annulerModifEmploye();
@@ -1928,7 +2095,7 @@ function sauverModifForfait(){
   if(!nom || prix <= 0) return;
   forfaitsConfig[idx] = { type: typeF, nom: nom, prix: prix, icone: typeF==='SMS'?'💬':(typeF==='Minutes'?'📞':'🌐') };
   localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
-  peuplerSelectForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Tarif mis à jour');
+  peuplerSelectForfaits(); rendreGestionForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Tarif mis à jour');
 }
 function ajouterNouveauForfait(){
   var typeF = document.getElementById('modForfaitType').value;
@@ -1937,7 +2104,7 @@ function ajouterNouveauForfait(){
   if(!nom || prix <= 0) return;
   forfaitsConfig.push({ type: typeF, nom: nom, prix: prix, icone: typeF==='SMS'?'💬':(typeF==='Minutes'?'📞':'🌐') });
   localStorage.setItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig));
-  peuplerSelectForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Nouveau forfait ajouté');
+  peuplerSelectForfaits(); rendreGestionForfaits(); fermerModal('modalForfaits'); jouerTonalite('stock'); notifier('✅ Nouveau forfait ajouté');
 }
 
 function ouvrirModalSuppression(){
@@ -2002,6 +2169,8 @@ function afficher(){
   document.getElementById('filtrePatron').style.display = patron ? 'inline-block' : 'none';
   document.getElementById('boxEnvoiRemarque').style.display = patron ? 'none' : 'block';
   document.getElementById('boxEnvoiPatron').style.display = patron ? 'block' : 'none';
+
+  rendreGestionForfaits();
 
   var lienInp = document.getElementById('lienAppPartage');
   if(lienInp && window.location.href.indexOf('http') === 0) lienInp.value = window.location.href;
@@ -2098,6 +2267,20 @@ function afficher(){
         fraisTxt: ''
       });
     });
+    var frsFiltres = (jourFiltre === 'TOUS') ? fraisHistorique : fraisHistorique.filter(function(h){ return h.date === jourFiltre; });
+    frsFiltres.forEach(function(h, idx){
+      var apresFrais = Number(h.apres || 0);
+      var actFrais = (h.action || 'ajouter').toUpperCase();
+      tousMouvements.push({
+        tri: h.id || ('frais_' + idx),
+        titre: '💰 Caisse Frais ' + actFrais + (h.service ? ' • ' + h.service : ''),
+        badge: '<span class="badge b-amber">' + (h.qui || 'RYCKIEL') + '</span>',
+        sousTitre: (h.motif || h.detail || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
+        petiteTotalite: 'Total caisse frais après: ' + apresFrais.toLocaleString() + ' CDF',
+        montantTxt: Number(h.montant).toLocaleString() + ' CDF',
+        fraisTxt: ''
+      });
+    });
   }
 
   var badgeHist = document.getElementById('badgeTotalHistorique');
@@ -2180,6 +2363,7 @@ function afficher(){
 jourSelectionneHistorique = dateAujourdhui();
 choisirCategorieForfait('SMS');
 choisirTypeOp('Dépôt - Transfert Monnaie');
+rendreGestionForfaits();
 
 if(docCabineRef){
   docCabineRef.onSnapshot(function(snap){

@@ -110,7 +110,7 @@ button:disabled{background:#CBD5E1;color:#64748B;cursor:not-allowed}
 .info-strip{
   background:#F0F7FF;border:1px solid #BFDBFE;border-radius:12px;padding:10px 12px;
   font-size:13px;font-weight:700;color:var(--primary-dark);margin-bottom:12px;
-  display:flex;justify-content:space-between;align-items:center;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
 }
 
 .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
@@ -130,6 +130,11 @@ button:disabled{background:#CBD5E1;color:#64748B;cursor:not-allowed}
 .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800}
 .b-blue{background:#DBEAFE;color:#1E40AF}
 .b-amber{background:#FEF3C7;color:#92400E}
+
+.releve-card{
+  border:1px solid var(--border);border-radius:12px;padding:8px 12px;background:#F8FAFC;margin-bottom:8px;font-size:12.5px;
+}
+.releve-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 
 details.toggle-card > summary{
   list-style:none;
@@ -333,8 +338,8 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <div class="num-status" id="msgNumero"><span>Tape le numéro (10 chiffres) : réseau détecté automatiquement</span></div>
 
     <div id="zoneReseau">
-      <label>Réseau (auto-détecté)</label>
-      <select id="opReseau" onchange="validerCoherenceNumero()">
+      <label id="lblReseau">Réseau (auto-détecté ou à choisir parmi les 4 réseaux)</label>
+      <select id="opReseau" onchange="onChangeReseau()">
         <option value="Airtel Money">Airtel Money</option>
         <option value="Orange Money">Orange Money</option>
         <option value="M-Pesa Vodacom">M-Pesa Vodacom</option>
@@ -361,7 +366,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
       <select id="opChoixForfait" onchange="majFraisEtResume()"></select>
 
       <div class="card" style="margin-top:10px;padding:12px;background:#F8FAFC">
-        <details class="toggle-card" id="toggleTousForfaitsOp" open>
+        <details class="toggle-card" id="toggleTousForfaitsOp">
           <summary>
             <span>⚙️ Tous les Forfaits (Minutes, Internet, SMS) <span class="badge b-blue" id="badgeNbForfaitsTotal">0</span></span>
             <span class="toggle-hint">Ouverture / Fermeture</span>
@@ -490,9 +495,13 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
         <input id="finCaisseEspeces" type="number" placeholder="0">
         <label>Note (optionnel)</label>
         <input id="finStockNote" placeholder="Ex: Comptage soir...">
+        <label style="display:flex;align-items:center;gap:8px;color:var(--primary-dark);margin-bottom:10px">
+          <input type="checkbox" id="finEnvoyerWhatsAppAuto" checked style="width:auto;margin:0">
+          Ouvrir aussi sur WhatsApp Patron (+243971986598)
+        </label>
         <button onclick="soumettreStockFinJournee()">📨 Envoyer pour validation Patron</button>
       </div>
-      <div id="listeRelevesStockFin" style="margin-top:10px"></div>
+      <div id="listeRelevesStockFin" style="margin-top:12px"></div>
     </details>
   </div>
 
@@ -523,7 +532,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <details class="toggle-card" id="toggleLienApp">
       <summary>
         <span>🔗 Lien de Partage &amp; Installation</span>
-        <span class="toggle-hint">Ouverture / Fermer</span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
       </summary>
       <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Envoie ce lien à tes employés sur WhatsApp pour qu'ils ouvrent et installent l'application :</p>
       <div style="display:flex;gap:8px">
@@ -534,10 +543,10 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
   </div>
 
   <div class="card">
-    <details class="toggle-card" id="toggleHistorique" open>
+    <details class="toggle-card" id="toggleHistorique">
       <summary>
-        <span>🧾 Derniers Mouvements (Équipe &amp; Patron)</span>
-        <span class="toggle-hint" id="badgeTotalHistorique">Par jour</span>
+        <span>🧾 Tous les Mouvements (Équipe &amp; Patron) <span class="badge b-blue" id="badgeTotalHistorique">0</span></span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
       </summary>
       <div class="hist-toolbar">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -581,15 +590,20 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
   </div>
 
   <div class="card" id="zonePatronAdmin" style="display:none">
-    <div class="card-title"><span>👑 Administration Patron (RYCKIEL)</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn-soft btn-sm" style="width:100%" onclick="ouvrirModalEmployes()">👥 Employés</button>
-      <button class="btn-soft btn-sm" style="width:100%" onclick="ouvrirModalForfaits()">📦 Tarifs Forfaits</button>
-      <button class="btn-ghost btn-sm" style="width:100%" onclick="exporterCSV()">📊 Export CSV</button>
-      <button class="btn-ghost btn-sm" style="width:100%" onclick="exporterJSON()">💾 Sauvegarde JSON</button>
-      <button class="btn-ghost btn-sm" style="width:100%" onclick="declencherImportJSON()">📥 Restaurer JSON</button>
-      <button class="btn-red btn-sm" style="width:100%" onclick="ouvrirModalSuppression()">🗑️ Supprimer / Corbeille</button>
-    </div>
+    <details class="toggle-card" id="toggleAdminPatron">
+      <summary>
+        <span>👑 Administration Patron (RYCKIEL)</span>
+        <span class="toggle-hint">Ouverture / Fermeture</span>
+      </summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+        <button class="btn-soft btn-sm" style="width:100%" onclick="ouvrirModalEmployes()">👥 Employés</button>
+        <button class="btn-soft btn-sm" style="width:100%" onclick="ouvrirModalForfaits()">📦 Tarifs Forfaits</button>
+        <button class="btn-ghost btn-sm" style="width:100%" onclick="exporterCSV()">📊 Export CSV</button>
+        <button class="btn-ghost btn-sm" style="width:100%" onclick="exporterJSON()">💾 Sauvegarde JSON</button>
+        <button class="btn-ghost btn-sm" style="width:100%" onclick="declencherImportJSON()">📥 Restaurer JSON</button>
+        <button class="btn-red btn-sm" style="width:100%" onclick="ouvrirModalSuppression()">🗑️ Supprimer / Corbeille</button>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -810,7 +824,7 @@ var firebaseConfig = {
   measurementId: "G-S655FBP8PM"
 };
 
-var db = null, docCabineRef = null, blocageSync = false, syncTimer = null, derniereMajCloud = 0;
+var db = null, docCabineRef = null, blocageSync = false, syncTimer = null, derniereMajCloud = 0, dernierEnvoiLocal = 0, envoiEnCours = false;
 var enAttenteSync = JSON.parse(localStorage.getItem('rtk_queue_sync') || '[]');
 var NUMERO_PATRON_WHATSAPP = "243971986598";
 var MESSAGE_ENCOURAGEMENT = "💪 Bravo à toute l'équipe RTK ! Chaque effort compte. Rendez-vous demain encore plus forts !";
@@ -839,7 +853,10 @@ try {
 var _origSetItem = localStorage.setItem.bind(localStorage);
 localStorage.setItem = function(k, v){
   _origSetItem(k, v);
-  if(k && k.indexOf('rtk_') === 0 && k !== 'rtk_queue_sync' && !blocageSync) pousserVersCloud();
+  if(k && k.indexOf('rtk_') === 0 && k !== 'rtk_queue_sync' && !blocageSync){
+    dernierEnvoiLocal = Date.now();
+    pousserVersCloud();
+  }
 };
 
 var forfaitsDefaut = [
@@ -908,6 +925,15 @@ function sauverSac(code, l){ localStorage.setItem('rtk_sac_'+code, JSON.stringif
 function chargerSacEchec(code){ try{ return JSON.parse(localStorage.getItem('rtk_sac_echec_'+code) || '[]'); }catch(e){ return []; } }
 function sauverSacEchec(code, l){ localStorage.setItem('rtk_sac_echec_'+code, JSON.stringify(l)); }
 
+function libelleOperationAvecReseau(service, detail){
+  var srv = service || '';
+  var det = (detail || '').trim();
+  if(!det) return srv;
+  if(srv === 'Dépôt - Transfert Monnaie') return 'Dépôt • ' + det;
+  if(srv === 'Retrait') return 'Retrait • ' + det;
+  return srv + ' • ' + det;
+}
+
 var toastTimer = null;
 function notifier(msg){
   var el = document.getElementById('toastNotif');
@@ -946,6 +972,7 @@ function construireEtatComplet(){
 
 function executerEnvoiCloud(immediat){
   if(!docCabineRef || !db || blocageSync) return Promise.resolve();
+  envoiEnCours = true;
   majStatutSync("🔄 Synchro...");
   var etatLocal = construireEtatComplet();
   var ts = Date.now();
@@ -971,6 +998,8 @@ function executerEnvoiCloud(immediat){
     _origSetItem('rtk_queue_sync', JSON.stringify(enAttenteSync));
     majStatutSync("🔴 Hors-ligne (" + enAttenteSync.length + " en attente)");
     if(immediat) notifier('⚠️ Synchro impossible (hors-ligne ou erreur réseau)');
+  }).finally(function(){
+    envoiEnCours = false;
   });
 }
 
@@ -1005,13 +1034,36 @@ window.addEventListener('online', function(){
   }
 });
 
+function fusionnerListesParId(listeCloud, listeLocale){
+  var map = {};
+  (listeCloud || []).forEach(function(item, idx){
+    var cle = item && item.id ? String(item.id) : ('idx_' + idx);
+    map[cle] = item;
+  });
+  (listeLocale || []).forEach(function(item, idx){
+    var cle = item && item.id ? String(item.id) : ('loc_' + idx);
+    if(!map[cle]) map[cle] = item;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; });
+}
+
 function appliquerEtatDepuisCloud(data){
   if(!data || typeof data !== 'object') return;
+  if(envoiEnCours || (dernierEnvoiLocal > 0 && data.updatedAt && data.updatedAt < dernierEnvoiLocal && (Date.now() - dernierEnvoiLocal) < 5000)){
+    return;
+  }
   blocageSync = true;
   try{
     if(Array.isArray(data.employes) && data.employes.length){ employes = data.employes; _origSetItem('rtk_employes', JSON.stringify(employes)); }
     if(Array.isArray(data.forfaitsConfig) && data.forfaitsConfig.length){ forfaitsConfig = normaliserForfaits(data.forfaitsConfig); _origSetItem('rtk_forfaits_config', JSON.stringify(forfaitsConfig)); peuplerSelectForfaits(); rendreGestionForfaits(); }
-    if(data.sacs){ for(var c in data.sacs) _origSetItem('rtk_sac_'+c, JSON.stringify(data.sacs[c] || [])); }
+    if(data.sacs){
+      for(var c in data.sacs){
+        var opsLocales = chargerSac(c);
+        var opsCloud = data.sacs[c] || [];
+        var fusionOps = (dernierEnvoiLocal > 0 && data.updatedAt && data.updatedAt < dernierEnvoiLocal) ? fusionnerListesParId(opsCloud, opsLocales) : opsCloud;
+        _origSetItem('rtk_sac_'+c, JSON.stringify(fusionOps));
+      }
+    }
     if(data.sacsEchec){ for(var ce in data.sacsEchec) _origSetItem('rtk_sac_echec_'+ce, JSON.stringify(data.sacsEchec[ce] || [])); }
     if(Array.isArray(data.corbeille)){ corbeille = data.corbeille; _origSetItem('rtk_corbeille', JSON.stringify(corbeille)); }
     if(data.stockMoney){ stockMoney = data.stockMoney; _origSetItem('rtk_stockMoney', JSON.stringify(stockMoney)); }
@@ -1034,7 +1086,10 @@ function appliquerEtatDepuisCloud(data){
       _origSetItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
     }
     if(Array.isArray(data.remarquesEquipe)){ remarquesEquipe = data.remarquesEquipe; _origSetItem('rtk_remarques_equipe', JSON.stringify(remarquesEquipe)); }
-    if(Array.isArray(data.relevesStockFinJournee)){ relevesStockFinJournee = data.relevesStockFinJournee; _origSetItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee)); }
+    if(Array.isArray(data.relevesStockFinJournee)){
+      relevesStockFinJournee = data.relevesStockFinJournee;
+      _origSetItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+    }
     if(Array.isArray(data.cloturesEquipe)){ cloturesEquipe = data.cloturesEquipe; _origSetItem('rtk_clotures_equipe', JSON.stringify(cloturesEquipe)); }
     if(data.deblocagesUrgenceJour){ deblocagesUrgenceJour = data.deblocagesUrgenceJour; _origSetItem('rtk_deblocages_urgence', JSON.stringify(deblocagesUrgenceJour)); }
     if(data.updatedAt) derniereMajCloud = data.updatedAt;
@@ -1174,6 +1229,12 @@ function peuplerSelectReseau(modeMoney){
       if(sel.options[i].value.indexOf(valAvant.split(' ')[0]) !== -1){ sel.selectedIndex = i; break; }
     }
   }
+  var lblRes = document.getElementById('lblReseau');
+  if(lblRes){
+    lblRes.textContent = modeMoney
+      ? 'Réseau Mobile Money (Airtel Money, Orange Money, M-Pesa Vodacom, Africell Money) *'
+      : 'Réseau Télécom (auto-détecté)';
+  }
 }
 
 function selectionnerReseauDansSelect(reseauBase){
@@ -1182,6 +1243,11 @@ function selectionnerReseauDansSelect(reseauBase){
   for(var i=0;i<sel.options.length;i++){
     if(sel.options[i].value.indexOf(reseauBase) !== -1){ sel.selectedIndex = i; break; }
   }
+}
+
+function onChangeReseau(){
+  validerCoherenceNumero();
+  majFraisEtResume();
 }
 
 function choisirCategorieForfait(cat){
@@ -1227,8 +1293,6 @@ function choisirTypeOp(type){
   if(det && det !== 'Inconnu') selectionnerReseauDansSelect(det);
 
   if(type === 'Recharge Forfait'){
-    var panneauForfaits = document.getElementById('toggleTousForfaitsOp');
-    if(panneauForfaits) panneauForfaits.open = true;
     choisirCategorieForfait(categorieForfaitActive);
     rendreGestionForfaits();
   } else if(type === 'Recharge Unités'){
@@ -1264,6 +1328,7 @@ function onSaisieNumero(){
   var det = detecterReseauDepuisNumero(chiffres);
   if(det && det !== 'Inconnu') selectionnerReseauDansSelect(det);
   validerCoherenceNumero();
+  majFraisEtResume();
 }
 
 function validerCoherenceNumero(){
@@ -1352,10 +1417,11 @@ function majFraisEtResume(){
   var m = Number(document.getElementById('opMontant').value || 0);
   var frais = (typeOpActuel === 'Dépôt - Transfert Monnaie') ? calculerFrais(m) : 0;
   var strip = document.getElementById('stripFrais');
+  var resSelect = document.getElementById('opReseau') ? document.getElementById('opReseau').value : '';
   if(typeOpActuel === 'Dépôt - Transfert Monnaie'){
-    strip.innerHTML = '<span>Frais dépôt :</span><span>' + frais.toLocaleString() + ' CDF</span>';
+    strip.innerHTML = '<span>Réseau : <b>' + resSelect + '</b> • Frais dépôt :</span><span>' + frais.toLocaleString() + ' CDF</span>';
   } else if(typeOpActuel === 'Retrait'){
-    strip.innerHTML = '<span>Frais retrait client :</span><span>0 CDF (Gratuit)</span>';
+    strip.innerHTML = '<span>Réseau : <b>' + resSelect + '</b> • Frais retrait :</span><span>0 CDF (Gratuit)</span>';
   } else if(typeOpActuel === 'Recharge Unités'){
     var nbU = m > 0 ? Math.floor(m / PRIX_UNITE_FC) : 0;
     strip.innerHTML = '<span>Unités calculées (1 u = ' + PRIX_UNITE_FC + ' FC) :</span><span>' + nbU.toLocaleString() + ' u</span>';
@@ -1418,7 +1484,7 @@ function enregistrerOperation(){
       stockMoney[reseau] -= m;
       caisse += m;
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + reseau + ': ' + Number(stockMoney[reseau]).toLocaleString() + ' FC';
-      caisseHistorique.push({ qui: emp.nom, action: 'ajouter', montant: m, motif: 'Dépôt ' + reseau + ' (' + n + ')', avant: caisse - m, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
+      caisseHistorique.push({ qui: emp.nom, action: 'ajouter', montant: m, reseau: reseau, motif: 'Dépôt ' + reseau + ' (' + n + ')', avant: caisse - m, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
       localStorage.setItem('rtk_caisse', String(caisse));
       localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
     } else if(typeOpActuel === 'Retrait'){
@@ -1427,7 +1493,7 @@ function enregistrerOperation(){
       caisse -= m;
       stockMoney[reseau] = avStkRetrait + m;
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + reseau + ': ' + Number(stockMoney[reseau]).toLocaleString() + ' FC';
-      caisseHistorique.push({ qui: emp.nom, action: 'retrancher', montant: m, motif: 'Retrait ' + reseau + ' (' + n + ')', avant: caisse + m, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
+      caisseHistorique.push({ qui: emp.nom, action: 'retrancher', montant: m, reseau: reseau, motif: 'Retrait ' + reseau + ' (' + n + ')', avant: caisse + m, apres: caisse, date: dateAujourdhui(), heure: heureActuelle() });
       stockHistorique.push({
         id: 'ret_stk_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
         qui: emp.nom,
@@ -1459,7 +1525,7 @@ function enregistrerOperation(){
 
   var obj = {
     id: 'op_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
-    client: clientNom, numero: n, service: typeOpActuel, montant: m,
+    client: clientNom, numero: n, service: typeOpActuel, reseau: reseau, montant: m,
     frais: estEchec ? 0 : frais, heure: heureActuelle(), vendeur: emp.nom,
     vendeurCode: emp.code, detail: detail, date: dateAujourdhui(), raison: estEchec ? raison : '',
     soldeApres: soldeApresMvt,
@@ -1479,7 +1545,7 @@ function enregistrerOperation(){
 
   if(frais > 0){
     caisseFrais += frais;
-    fraisHistorique.push({ id: 'frs_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: 'ajouter', service: typeOpActuel, detail: detail, montant: frais, numero: n, montantOp: m, motif: 'Frais ' + typeOpActuel, avant: caisseFrais - frais, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
+    fraisHistorique.push({ id: 'frs_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), qui: emp.nom, action: 'ajouter', service: typeOpActuel, reseau: reseau, detail: detail, montant: frais, numero: n, montantOp: m, motif: 'Frais ' + typeOpActuel + (reseau ? ' • ' + reseau : ''), avant: caisseFrais - frais, apres: caisseFrais, date: dateAujourdhui(), heure: heureActuelle() });
     localStorage.setItem('rtk_caisse_frais', String(caisseFrais));
     localStorage.setItem('rtk_frais_historique', JSON.stringify(fraisHistorique));
   }
@@ -1491,11 +1557,12 @@ function enregistrerOperation(){
   monSac.push(obj);
   sauverSac(c, monSac);
 
+  dernierEnvoiLocal = Date.now();
   pousserVersCloud(true);
 
   compteurSession++;
   document.getElementById('badgeCompteurSession').textContent = compteurSession + ' op.';
-  document.getElementById('dernierRecu').textContent = '✅ Dernier : ' + typeOpActuel + ' • ' + m.toLocaleString() + ' CDF (Total ' + emp.nom + ': ' + totalEmployeApresOp.toLocaleString() + ' FC)';
+  document.getElementById('dernierRecu').textContent = '✅ Dernier : ' + libelleOperationAvecReseau(typeOpActuel, detail) + ' • ' + m.toLocaleString() + ' CDF (Total ' + emp.nom + ': ' + totalEmployeApresOp.toLocaleString() + ' FC)';
   reinitialiserFormOp();
   jouerTonalite('operation');
   afficher();
@@ -1580,6 +1647,7 @@ function validerAjustementStockCaisse(){
     localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
   }
+  dernierEnvoiLocal = Date.now();
   pousserVersCloud(true);
   fermerModal('modalStock');
   jouerTonalite('stock');
@@ -1607,17 +1675,96 @@ function supprimerMouvementStockParJour(idMouvement, dateJour){
 
   stockHistorique.splice(indexTrouve, 1);
   localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
+  dernierEnvoiLocal = Date.now();
   pousserVersCloud(true);
   jouerTonalite('suppression');
   afficher();
   notifier('🗑️ Mouvement du ' + cibleJour + ' supprimé');
 }
 
+function supprimerReleveStockFin(id){
+  if(!isPatron()){ jouerTonalite('erreur'); alert('⛔ Action réservée au compte patron RYCKIEL.'); return; }
+  var idx = relevesStockFinJournee.findIndex(function(r){ return String(r.id) === String(id); });
+  if(idx === -1) return;
+  var rel = relevesStockFinJournee[idx];
+  if(!confirm('Supprimer le relevé de ' + (rel.soumisPar || '') + ' (' + (rel.date || '') + ' ' + (rel.heure || '') + ') ?')) return;
+  relevesStockFinJournee.splice(idx, 1);
+  localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  dernierEnvoiLocal = Date.now();
+  pousserVersCloud(true);
+  jouerTonalite('suppression');
+  afficher();
+  notifier('🗑️ Relevé supprimé');
+}
+
+function formaterMessageReleveWhatsApp(rel){
+  var m = (rel && rel.stocks && rel.stocks.money) || {};
+  var u = (rel && rel.stocks && rel.stocks.unites) || {};
+  var cVal = Number((rel && rel.stocks && rel.stocks.caisse) || 0);
+
+  var mAir = Number(m['Airtel Money'] || 0);
+  var mOra = Number(m['Orange Money'] || 0);
+  var mVod = Number(m['M-Pesa Vodacom'] || 0);
+  var mAfr = Number(m['Africell Money'] || 0);
+  var totM = mAir + mOra + mVod + mAfr;
+
+  var uAir = Number(u['Airtel'] || 0);
+  var uOra = Number(u['Orange'] || 0);
+  var uVod = Number(u['Vodacom'] || 0);
+  var uAfr = Number(u['Africell'] || 0);
+  var totU = uAir + uOra + uVod + uAfr;
+  var totUFc = totU * PRIX_UNITE_FC;
+  var totGeneral = cVal + totM + totUFc;
+
+  var ligneCol = function(col1, col2){
+    var g = col1.toString();
+    while(g.length < 16) g += ' ';
+    return g + ' | ' + col2;
+  };
+
+  var tableauTxt = "```\n" +
+    ligneCol("POSTE / RÉSEAU", "VALEUR") + "\n" +
+    "-----------------+----------------\n" +
+    ligneCol("Caisse Espèces", cVal.toLocaleString() + " FC") + "\n" +
+    ligneCol("Airtel Money", mAir.toLocaleString() + " FC") + "\n" +
+    ligneCol("Orange Money", mOra.toLocaleString() + " FC") + "\n" +
+    ligneCol("M-Pesa Vodacom", mVod.toLocaleString() + " FC") + "\n" +
+    ligneCol("Africell Money", mAfr.toLocaleString() + " FC") + "\n" +
+    ligneCol("Sous-Tot Money", totM.toLocaleString() + " FC") + "\n" +
+    "-----------------+----------------\n" +
+    ligneCol("Unités Airtel", uAir.toLocaleString() + " u") + "\n" +
+    ligneCol("Unités Orange", uOra.toLocaleString() + " u") + "\n" +
+    ligneCol("Unités Vodacom", uVod.toLocaleString() + " u") + "\n" +
+    ligneCol("Unités Africell", uAfr.toLocaleString() + " u") + "\n" +
+    ligneCol("Sous-Tot Unités", totU.toLocaleString() + " u (" + totUFc.toLocaleString() + "F)") + "\n" +
+    "-----------------+----------------\n" +
+    ligneCol("TOTAL GÉNÉRAL", totGeneral.toLocaleString() + " FC") + "\n" +
+    "```";
+
+  return "🌅 *TABLEAU STOCK FIN JOURNÉE / MATINAL - CABINE RTK*\n" +
+    "👤 Agent : *" + (rel.soumisPar || '') + "*\n" +
+    "📅 Date : " + (rel.date || '') + " à " + (rel.heure || '') + "\n" +
+    "📌 Statut : " + (rel.statut === 'VALIDE' ? '✅ Validé' : '⏳ En attente validation Patron') + "\n\n" +
+    tableauTxt + "\n" +
+    (rel.note ? ("📝 *Note :* " + rel.note + "\n") : "");
+}
+
+function envoyerReleveWhatsAppPatron(id){
+  var rel = relevesStockFinJournee.find(function(r){ return r.id === id; });
+  if(!rel) return;
+  var msg = formaterMessageReleveWhatsApp(rel);
+  window.open("https://wa.me/" + NUMERO_PATRON_WHATSAPP + "?text=" + encodeURIComponent(msg), "_blank");
+}
+
 function soumettreStockFinJournee(){
   if(verifierBlocage()) return;
-  relevesStockFinJournee.push({
-    id: 'sfj_' + Date.now(), soumisPar: getUser(), date: dateAujourdhui(), heure: heureActuelle(),
-    note: document.getElementById('finStockNote').value.trim(), statut: 'EN_ATTENTE',
+  var nouveauReleve = {
+    id: 'sfj_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+    soumisPar: getUser(),
+    date: dateAujourdhui(),
+    heure: heureActuelle(),
+    note: document.getElementById('finStockNote').value.trim(),
+    statut: 'EN_ATTENTE',
     stocks: {
       money: {
         'Airtel Money': Number(document.getElementById('finAirtelMoney').value || 0),
@@ -1633,12 +1780,19 @@ function soumettreStockFinJournee(){
       },
       caisse: Number(document.getElementById('finCaisseEspeces').value || 0)
     }
-  });
+  };
+  relevesStockFinJournee.push(nouveauReleve);
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  dernierEnvoiLocal = Date.now();
   pousserVersCloud(true);
   jouerTonalite('stock');
   afficher();
   notifier('📨 Relevé envoyé au Patron');
+
+  var chkWa = document.getElementById('finEnvoyerWhatsAppAuto');
+  if(!chkWa || chkWa.checked){
+    window.open("https://wa.me/" + NUMERO_PATRON_WHATSAPP + "?text=" + encodeURIComponent(formaterMessageReleveWhatsApp(nouveauReleve)), "_blank");
+  }
 }
 
 function validerStockFinJourneePatron(id){
@@ -1653,6 +1807,7 @@ function validerStockFinJourneePatron(id){
   localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
   localStorage.setItem('rtk_caisse', String(caisse));
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  dernierEnvoiLocal = Date.now();
   pousserVersCloud(true);
   jouerTonalite('stock');
   afficher();
@@ -1776,6 +1931,16 @@ function imprimerJourHistorique(){
   setTimeout(function(){ window.print(); }, 250);
 }
 
+function calculerFraisJourDepuisHistorique(jour){
+  var total = 0;
+  fraisHistorique.forEach(function(h){
+    if(h.date === jour){
+      total += (h.action === 'retrancher' ? -Number(h.montant || 0) : Number(h.montant || 0));
+    }
+  });
+  return total;
+}
+
 var texteRapportWhatsApp = '';
 function ouvrirRapport(dateCible){
   var jour = dateCible || ((jourSelectionneHistorique && jourSelectionneHistorique !== 'TOUS') ? jourSelectionneHistorique : dateAujourdhui());
@@ -1791,7 +1956,14 @@ function ouvrirRapport(dateCible){
   var totUnites = 0, nbUnites = 0;
   var totForfait = 0, nbForfait = 0;
   var totAutres = 0, nbAutres = 0;
-  var totFrais = 0, fraisDepot = 0;
+  var totFraisOps = 0, fraisDepot = 0;
+
+  var parReseauMoney = {
+    'Airtel Money': { depot: 0, retrait: 0, nbDepot: 0, nbRetrait: 0 },
+    'Orange Money': { depot: 0, retrait: 0, nbDepot: 0, nbRetrait: 0 },
+    'M-Pesa Vodacom': { depot: 0, retrait: 0, nbDepot: 0, nbRetrait: 0 },
+    'Africell Money': { depot: 0, retrait: 0, nbDepot: 0, nbRetrait: 0 }
+  };
 
   var totalParEmploye = {};
   employes.forEach(function(e){ totalParEmploye[norm(e.nom)] = 0; });
@@ -1799,17 +1971,25 @@ function ouvrirRapport(dateCible){
   tout.forEach(function(v){
     var m = Number(v.montant || 0);
     var f = Number(v.frais || 0);
-    totFrais += f;
+    totFraisOps += f;
     var keyEmp = norm(v.vendeur);
     totalParEmploye[keyEmp] = (totalParEmploye[keyEmp] || 0) + m;
+
+    var resOp = v.reseau || v.detail || '';
+    var cleRes = null;
+    Object.keys(parReseauMoney).forEach(function(rk){
+      if(resOp.indexOf(rk) !== -1) cleRes = rk;
+    });
 
     if(v.service === 'Dépôt - Transfert Monnaie'){
       totMonnaie += m; nbMonnaie++;
       totDepots += m; nbDepots++;
       fraisDepot += f;
+      if(cleRes){ parReseauMoney[cleRes].depot += m; parReseauMoney[cleRes].nbDepot++; }
     } else if(v.service === 'Retrait'){
       totMonnaie += m; nbMonnaie++;
       totRetraits += m; nbRetraits++;
+      if(cleRes){ parReseauMoney[cleRes].retrait += m; parReseauMoney[cleRes].nbRetrait++; }
     } else if(v.service === 'Recharge Unités'){
       totUnites += m; nbUnites++;
     } else if(v.service === 'Recharge Forfait'){
@@ -1818,6 +1998,9 @@ function ouvrirRapport(dateCible){
       totAutres += m; nbAutres++;
     }
   });
+
+  var fraisHistJour = calculerFraisJourDepuisHistorique(jour);
+  var totFraisAffichage = Math.max(totFraisOps, fraisHistJour);
 
   var totalGeneralOperations = totMonnaie + totUnites + totForfait + totAutres;
   var totalGeneralEmployes = Object.keys(totalParEmploye).reduce(function(acc, k){ return acc + Number(totalParEmploye[k] || 0); }, 0);
@@ -1828,9 +2011,10 @@ function ouvrirRapport(dateCible){
   var lignesMoneyTxt = '';
   reseauxMoney.forEach(function(r){
     var val = Number(stockMoney[r] || 0);
+    var stR = parReseauMoney[r];
     totalSimMoney += val;
-    lignesMoneyHtml += '<div class="rapport-line"><span>• ' + r + '</span><b>' + val.toLocaleString() + ' CDF</b></div>';
-    lignesMoneyTxt += "  - " + r + " : " + val.toLocaleString() + " CDF\n";
+    lignesMoneyHtml += '<div class="rapport-line"><span>• <b>' + r + '</b> <small style="display:inline">(Dép: ' + stR.depot.toLocaleString() + ' • Ret: ' + stR.retrait.toLocaleString() + ')</small></span><b>' + val.toLocaleString() + ' CDF</b></div>';
+    lignesMoneyTxt += "  - " + r + " : " + val.toLocaleString() + " CDF (Dép: " + stR.depot.toLocaleString() + " | Ret: " + stR.retrait.toLocaleString() + ")\n";
   });
 
   var reseauxUnites = ['Airtel','Orange','Vodacom','Africell'];
@@ -1853,11 +2037,11 @@ function ouvrirRapport(dateCible){
     "📅 Jour : " + jour + " • Généré à " + heureActuelle() + "\n" +
     "-----------------------------\n" +
     "💵 *Caisse Espèces : " + caisseVal.toLocaleString() + " CDF*\n" +
-    "💰 *Caisse Frais : " + caisseFraisVal.toLocaleString() + " CDF*\n" +
-    "💳 *Frais de dépôt (" + jour + ") : " + fraisDepot.toLocaleString() + " CDF*\n" +
+    "💰 *Caisse Frais (Cumul) : " + caisseFraisVal.toLocaleString() + " CDF*\n" +
+    "💳 *Frais du jour (" + jour + ") : " + totFraisAffichage.toLocaleString() + " CDF*\n" +
     "💵 *Retraits du jour (" + jour + ") : " + totRetraits.toLocaleString() + " CDF (" + nbRetraits + " op.)*\n" +
     "-----------------------------\n" +
-    "📲 *SOLDES SIM MONEY :*\n" + lignesMoneyTxt +
+    "📲 *SOLDES SIM MONEY (4 RÉSEAUX) :*\n" + lignesMoneyTxt +
     "➡️ *Total SIM Money : " + totalSimMoney.toLocaleString() + " CDF*\n" +
     "-----------------------------\n" +
     "📱 *UNITÉS PAR SIM (1 u = 25 FC) :*\n" + lignesUnitesTxt +
@@ -1881,10 +2065,10 @@ function ouvrirRapport(dateCible){
   html += '<div class="rapport-box">' +
     '<div class="rapport-section-title">💼 Caisses &amp; Frais</div>' +
     '<div class="rapport-line"><span>💵 Caisse Espèces</span><b>' + caisseVal.toLocaleString() + ' CDF</b></div>' +
-    '<div class="rapport-line"><span>💰 Caisse Frais</span><b>' + caisseFraisVal.toLocaleString() + ' CDF</b></div>' +
-    '<div class="rapport-frais-depot"><span>💳 Frais de dépôt (' + jour + ')</span><span>' + fraisDepot.toLocaleString() + ' CDF</span></div>' +
+    '<div class="rapport-line"><span>💰 Caisse Frais (Cumul)</span><b>' + caisseFraisVal.toLocaleString() + ' CDF</b></div>' +
+    '<div class="rapport-frais-depot"><span>💳 Frais du jour (' + jour + ')</span><span>' + totFraisAffichage.toLocaleString() + ' CDF</span></div>' +
 
-    '<div class="rapport-section-title">📲 Argent SIM Money</div>' +
+    '<div class="rapport-section-title">📲 Argent SIM Money (Par Réseau)</div>' +
     lignesMoneyHtml +
     '<div class="rapport-subtotal"><span>Total SIM Money</span><span>' + totalSimMoney.toLocaleString() + ' CDF</span></div>' +
 
@@ -1904,13 +2088,13 @@ function ouvrirRapport(dateCible){
     '<div class="rapport-total"><span>🏆 TOTAL OPÉRATIONS (' + jour + ')</span><span>' + totalGeneralOperations.toLocaleString() + ' CDF</span></div>' +
     '</div>';
 
-  html += '<div class="table-wrap"><table class="tbl"><tr><th>Heure</th><th>Agent</th><th>Opération</th><th>Montant</th><th>Frais</th><th>Client</th><th>Total Employé</th></tr>';
+  html += '<div class="table-wrap"><table class="tbl"><tr><th>Heure</th><th>Agent</th><th>Opération &amp; Réseau</th><th>Montant</th><th>Frais</th><th>Client</th><th>Total Employé</th></tr>';
   tout.slice().reverse().forEach(function(v){
     var totEmp = Number(totalParEmploye[norm(v.vendeur)] || 0);
     var fraisOp = Number(v.frais || 0);
-    html += '<tr><td>' + v.heure + '</td><td>' + v.vendeur + '</td><td>' + v.service + '</td><td>' + Number(v.montant).toLocaleString() + ' FC</td><td>' + fraisOp.toLocaleString() + ' FC</td><td>' + (v.numero || v.client) + '</td><td><b>' + totEmp.toLocaleString() + ' FC</b></td></tr>';
+    html += '<tr><td>' + v.heure + '</td><td>' + v.vendeur + '</td><td>' + libelleOperationAvecReseau(v.service, v.detail) + '</td><td>' + Number(v.montant).toLocaleString() + ' FC</td><td>' + fraisOp.toLocaleString() + ' FC</td><td>' + (v.numero || v.client) + '</td><td><b>' + totEmp.toLocaleString() + ' FC</b></td></tr>';
   });
-  html += '<tr class="tr-total-bas"><td colspan="4">🏆 TOTAL GÉNÉRAL (' + jour + ')</td><td>' + totFrais.toLocaleString() + ' FC</td><td colspan="2">' + totalGeneralEmployes.toLocaleString() + ' FC</td></tr>';
+  html += '<tr class="tr-total-bas"><td colspan="4">🏆 TOTAL GÉNÉRAL (' + jour + ')</td><td>' + totFraisAffichage.toLocaleString() + ' FC</td><td colspan="2">' + totalGeneralEmployes.toLocaleString() + ' FC</td></tr>';
   html += '</table></div>';
 
   document.getElementById('zoneRapportImpression').innerHTML = html;
@@ -2172,7 +2356,7 @@ function ouvrirModalSuppression(){
   document.getElementById('nbCorbeilleModal').textContent = corbeille.length;
   document.getElementById('listeCorbeilleModal').innerHTML = corbeille.slice().reverse().map(function(v, i){
     var idx = corbeille.length - 1 - i;
-    return '<div class="row-item"><div><b>' + v.service + '</b><small>' + v.vendeur + ' • ' + Number(v.montant).toLocaleString() + ' CDF</small></div><button class="btn-sm btn-green" onclick="restaurerCorbeille(' + idx + ')">↩️</button></div>';
+    return '<div class="row-item"><div><b>' + libelleOperationAvecReseau(v.service, v.detail) + '</b><small>' + v.vendeur + ' • ' + Number(v.montant).toLocaleString() + ' CDF</small></div><button class="btn-sm btn-green" onclick="restaurerCorbeille(' + idx + ')">↩️</button></div>';
   }).join('') || '<small style="color:var(--muted)">Corbeille vide</small>';
   ouvrirModal('modalSuppression');
 }
@@ -2196,7 +2380,7 @@ function restaurerCorbeille(idx){
 }
 
 function exporterCSV(){
-  var rows = [['Date','Heure','Employé','Service','Détail','Montant','Frais','Numéro'].join(';')];
+  var rows = [['Date','Heure','Employé','Service','Réseau / Détail','Montant','Frais','Numéro'].join(';')];
   employes.forEach(function(e){ chargerSac(e.code).forEach(function(v){ rows.push([v.date, v.heure, v.vendeur, v.service, v.detail, v.montant, v.frais||0, v.numero||''].join(';')); }); });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' }));
@@ -2275,16 +2459,25 @@ function afficher(){
   var duJour = toutesOps.filter(function(v){ return v.date === auj; });
   var totM = 0, totF = 0;
   duJour.forEach(function(v){ totM += Number(v.montant||0); totF += Number(v.frais||0); });
+  var fraisHistAuj = calculerFraisJourDepuisHistorique(auj);
+  var fraisJourAffiches = Math.max(totF, fraisHistAuj);
   document.getElementById('kpiNb').textContent = duJour.length;
   document.getElementById('kpiTotal').textContent = totM.toLocaleString();
-  document.getElementById('kpiFrais').textContent = totF.toLocaleString();
+  document.getElementById('kpiFrais').textContent = fraisJourAffiches.toLocaleString();
 
   var jourTableau = (jourFiltre === 'TOUS') ? auj : jourFiltre;
-  document.getElementById('resumePatronTable').innerHTML = '<div class="table-wrap" style="margin-bottom:10px"><table class="tbl"><tr><th>Membre (' + jourTableau + ')</th><th>Op.</th><th>Total</th><th>Frais</th></tr>' + employes.map(function(e){
+  var totalFraisTableau = 0;
+  var lignesTableauHtml = employes.map(function(e){
     var nb = 0, s = 0, f = 0;
     chargerSac(e.code).forEach(function(v){ if(v.date === jourTableau){ nb++; s += Number(v.montant||0); f += Number(v.frais||0); } });
+    totalFraisTableau += f;
     return '<tr><td><b>' + e.nom + (norm(e.nom)==='RYCKIEL'?' 👑':'') + '</b></td><td>' + nb + '</td><td>' + s.toLocaleString() + '</td><td>' + f.toLocaleString() + '</td></tr>';
-  }).join('') + '</table></div>';
+  }).join('');
+  var fraisHistTableau = calculerFraisJourDepuisHistorique(jourTableau);
+  if(fraisHistTableau > totalFraisTableau){
+    lignesTableauHtml += '<tr style="background:#FFFBEB"><td><b>💰 Frais enregistrés (' + jourTableau + ')</b></td><td>-</td><td>-</td><td><b>' + fraisHistTableau.toLocaleString() + '</b></td></tr>';
+  }
+  document.getElementById('resumePatronTable').innerHTML = '<div class="table-wrap" style="margin-bottom:10px"><table class="tbl"><tr><th>Membre (' + jourTableau + ')</th><th>Op.</th><th>Total</th><th>Frais</th></tr>' + lignesTableauHtml + '</table></div>';
 
   var visiblesFiltresJour = (jourFiltre === 'TOUS') ? visibles : visibles.filter(function(v){ return v.date === jourFiltre; });
 
@@ -2295,9 +2488,9 @@ function afficher(){
     var petiteTotalite = [totEmpTxt, soldeTxt].filter(Boolean).join(' • ');
     tousMouvements.push({
       tri: v.id || '',
-      titre: v.service,
+      titre: libelleOperationAvecReseau(v.service, v.detail),
       badge: '<span class="badge b-blue">' + v.vendeur + '</span>',
-      sousTitre: (v.numero || v.client) + ' • ' + v.detail + ' • ' + v.date + ' ' + v.heure,
+      sousTitre: (v.numero || v.client) + ' • ' + v.date + ' ' + v.heure,
       petiteTotalite: petiteTotalite,
       montantTxt: Number(v.montant).toLocaleString() + ' CDF',
       fraisTxt: Number(v.frais||0) > 0 ? ('+' + Number(v.frais).toLocaleString() + ' frais') : ''
@@ -2328,7 +2521,7 @@ function afficher(){
     var apresCaisse = Number(h.apres || 0);
     tousMouvements.push({
       tri: 'caisse_' + idx,
-      titre: '💵 Caisse ' + h.action.toUpperCase(),
+      titre: '💵 Caisse ' + h.action.toUpperCase() + (h.reseau ? ' • ' + h.reseau : ''),
       badge: '<span class="badge b-amber">' + h.qui + '</span>',
       sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
       petiteTotalite: 'Total caisse après: ' + apresCaisse.toLocaleString() + ' CDF',
@@ -2342,9 +2535,10 @@ function afficher(){
     if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
     var apresFrais = Number(h.apres || 0);
     var actFrais = (h.action || 'ajouter').toUpperCase();
+    var resFrais = h.reseau ? (' • ' + h.reseau) : '';
     tousMouvements.push({
       tri: h.id || ('frais_' + idx),
-      titre: '💰 Caisse Frais ' + actFrais + (h.service ? ' • ' + h.service : ''),
+      titre: '💰 Caisse Frais ' + actFrais + (h.service ? ' • ' + h.service : '') + resFrais,
       badge: '<span class="badge b-amber">' + (h.qui || 'RYCKIEL') + '</span>',
       sousTitre: (h.motif || h.detail || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
       petiteTotalite: 'Total caisse frais après: ' + apresFrais.toLocaleString() + ' CDF',
@@ -2366,9 +2560,8 @@ function afficher(){
   }).join('') || '<small style="color:var(--muted)">Aucun mouvement pour ' + jourFiltre + '.</small>';
 
   document.getElementById('valCaisseEspeces').textContent = caisse.toLocaleString() + ' CDF';
-  var fraisJour = 0;
-  fraisHistorique.forEach(function(h){ if(h.date === auj) fraisJour += (h.action === 'ajouter' ? Number(h.montant) : -Number(h.montant)); });
-  document.getElementById('valCaisseFrais').textContent = (patron ? caisseFrais : fraisJour).toLocaleString() + ' CDF';
+  var fraisJour = calculerFraisJourDepuisHistorique(auj);
+  document.getElementById('valCaisseFrais').textContent = (patron ? Math.max(caisseFrais, fraisJour) : fraisJour).toLocaleString() + ' CDF';
   document.getElementById('lblCaisseFrais').textContent = patron ? '💰 Caisse Frais (Cumul)' : '💰 Frais du Jour';
 
   document.getElementById('listeSoldesMoney').innerHTML = Object.keys(stockMoney).map(function(k){ return '<div class="row-item"><span>💰 ' + k + '</span><b>' + Number(stockMoney[k]||0).toLocaleString() + ' CDF</b></div>'; }).join('');
@@ -2401,11 +2594,44 @@ function afficher(){
   }).join('') || '<small style="color:var(--muted)">Aucun mouvement de stock pour le ' + jourStockCible + '.</small>';
 
   var relVis = patron ? relevesStockFinJournee : relevesStockFinJournee.filter(function(r){ return norm(r.soumisPar) === norm(u); });
-  document.getElementById('badgeStockFin').textContent = relVis.length;
-  document.getElementById('listeRelevesStockFin').innerHTML = relVis.slice().reverse().slice(0, 5).map(function(r){
-    return '<div class="row-item"><div><b>' + r.date + ' • ' + r.soumisPar + '</b><small>Espèces: ' + Number(r.stocks.caisse||0).toLocaleString() + ' CDF • ' + (r.statut==='VALIDE'?'✅ Validé':'⏳ En attente') + '</small></div>' +
-      (patron && r.statut !== 'VALIDE' ? '<button class="btn-sm btn-green" onclick="validerStockFinJourneePatron(\'' + r.id + '\')">✅ Valider</button>' : '') + '</div>';
-  }).join('');
+  var nbEnAttente = relVis.filter(function(r){ return r.statut !== 'VALIDE'; }).length;
+  document.getElementById('badgeStockFin').textContent = relVis.length + (nbEnAttente > 0 ? (' • ' + nbEnAttente + ' à valider') : '');
+  document.getElementById('listeRelevesStockFin').innerHTML = relVis.slice().reverse().slice(0, 12).map(function(r){
+    var sm = (r.stocks && r.stocks.money) || {};
+    var su = (r.stocks && r.stocks.unites) || {};
+    var sc = Number((r.stocks && r.stocks.caisse) || 0);
+    var mAir = Number(sm['Airtel Money']||0), mOra = Number(sm['Orange Money']||0), mVod = Number(sm['M-Pesa Vodacom']||0), mAfr = Number(sm['Africell Money']||0);
+    var totM = mAir + mOra + mVod + mAfr;
+    var uAir = Number(su['Airtel']||0), uOra = Number(su['Orange']||0), uVod = Number(su['Vodacom']||0), uAfr = Number(su['Africell']||0);
+    var totU = uAir + uOra + uVod + uAfr;
+    var totGeneral = sc + totM + (totU * PRIX_UNITE_FC);
+    var badgeStatut = r.statut === 'VALIDE'
+      ? '<span class="badge b-blue">✅ Validé</span>'
+      : '<span class="badge b-amber">⏳ En attente</span>';
+    return '<div class="releve-card">' +
+      '<details class="toggle-card">' +
+      '<summary>' +
+      '<span><b>' + r.soumisPar + '</b> • <small style="display:inline;color:var(--muted)">' + r.date + ' ' + r.heure + '</small> • <b>' + sc.toLocaleString() + ' FC</b> ' + badgeStatut + '</span>' +
+      '<span class="toggle-hint">Ouvrir / Fermer</span>' +
+      '</summary>' +
+      '<div class="table-wrap"><table class="tbl">' +
+      '<tr><th>Poste / Réseau</th><th>Solde</th><th>Poste / Réseau</th><th>Solde</th></tr>' +
+      '<tr><td><b>💵 Espèces</b></td><td><b>' + sc.toLocaleString() + ' FC</b></td><td><b>📱 Unités Airtel</b></td><td>' + uAir.toLocaleString() + ' u</td></tr>' +
+      '<tr><td>Airtel Money</td><td>' + mAir.toLocaleString() + ' FC</td><td>Unités Orange</td><td>' + uOra.toLocaleString() + ' u</td></tr>' +
+      '<tr><td>Orange Money</td><td>' + mOra.toLocaleString() + ' FC</td><td>Unités Vodacom</td><td>' + uVod.toLocaleString() + ' u</td></tr>' +
+      '<tr><td>M-Pesa Vodacom</td><td>' + mVod.toLocaleString() + ' FC</td><td>Unités Africell</td><td>' + uAfr.toLocaleString() + ' u</td></tr>' +
+      '<tr><td>Africell Money</td><td>' + mAfr.toLocaleString() + ' FC</td><td><b>Sous-Tot Unités</b></td><td><b>' + totU.toLocaleString() + ' u</b></td></tr>' +
+      '<tr class="tr-total-bas"><td colspan="2">Sous-Tot Money : ' + totM.toLocaleString() + ' FC</td><td colspan="2">Total Général : ' + totGeneral.toLocaleString() + ' FC</td></tr>' +
+      '</table></div>' +
+      (r.note ? '<small style="margin-top:6px">📝 Note : ' + r.note + '</small>' : '') +
+      '<div class="releve-actions">' +
+      '<button type="button" class="btn-sm btn-whatsapp" onclick="envoyerReleveWhatsAppPatron(\'' + r.id + '\')">🟢 WhatsApp Patron</button>' +
+      (patron && r.statut !== 'VALIDE' ? '<button type="button" class="btn-sm btn-green" onclick="validerStockFinJourneePatron(\'' + r.id + '\')">✅ Valider Stock</button>' : '') +
+      (patron ? '<button type="button" class="btn-sm btn-red" onclick="supprimerReleveStockFin(\'' + r.id + '\')">🗑️ Supprimer</button>' : '') +
+      '</div>' +
+      '</details>' +
+      '</div>';
+  }).join('') || '<small style="color:var(--muted)">Aucun relevé stock fin journée / matinal pour le moment.</small>';
 
   var bloque = estBloquePourEmploye();
   var alClot = document.getElementById('alerteCloture');

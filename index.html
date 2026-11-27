@@ -518,14 +518,14 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
   <div class="card">
     <details class="toggle-card" id="toggleHistorique" open>
       <summary>
-        <span>🧾 Historique des Opérations &amp; Mouvements</span>
+        <span>🧾 Derniers Mouvements (Équipe &amp; Patron)</span>
         <span class="toggle-hint" id="badgeTotalHistorique">Par jour</span>
       </summary>
       <div class="hist-toolbar">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <label for="filtreJourHistorique" style="margin:0;font-size:12px;font-weight:800;color:var(--primary-dark)">📅 Jour :</label>
           <select id="filtreJourHistorique" onchange="onChangeJourHistorique()" style="padding:6px 10px;font-size:12px"></select>
-          <select id="filtrePatron" onchange="afficher()" style="padding:6px 10px;font-size:12px;display:none">
+          <select id="filtrePatron" onchange="afficher()" style="padding:6px 10px;font-size:12px">
             <option value="TOUT">Tous les comptes</option>
           </select>
         </div>
@@ -614,7 +614,7 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <input id="stkMotif" placeholder="Ex: Approvisionnement Patron...">
     <label>Ton code secret *</label>
     <input id="stkCode" type="password" inputmode="numeric" maxlength="4" placeholder="••••">
-    <button class="btn-green" onclick="validerAjustementStockCaisse()">✅ Enregistrer</button>
+    <button class="btn-green" onclick="validerAjustementStockCaisse()">✅ Enregistrer (Synchro Tous)</button>
   </div>
 </div>
 
@@ -927,7 +927,7 @@ function construireEtatComplet(){
 }
 
 function executerEnvoiCloud(immediat){
-  if(!docCabineRef || !db || blocageSync) return;
+  if(!docCabineRef || !db || blocageSync) return Promise.resolve();
   majStatutSync("🔄 Synchro...");
   var etatLocal = construireEtatComplet();
   var ts = Date.now();
@@ -956,12 +956,16 @@ function executerEnvoiCloud(immediat){
   });
 }
 
-function pousserVersCloud(){
+function pousserVersCloud(sansDelai){
   if(!docCabineRef || !db || blocageSync) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(function(){
+  if(sansDelai){
     executerEnvoiCloud(false);
-  }, 150);
+  } else {
+    syncTimer = setTimeout(function(){
+      executerEnvoiCloud(false);
+    }, 120);
+  }
 }
 
 function forcerSynchronisationManuelle(){
@@ -979,13 +983,12 @@ function forcerSynchronisationManuelle(){
 
 window.addEventListener('online', function(){
   if(enAttenteSync.length > 0){
-    pousserVersCloud();
+    pousserVersCloud(true);
   }
 });
 
 function appliquerEtatDepuisCloud(data){
   if(!data || typeof data !== 'object') return;
-  if(data.updatedAt && derniereMajCloud && data.updatedAt < derniereMajCloud) return;
   blocageSync = true;
   try{
     if(Array.isArray(data.employes) && data.employes.length){ employes = data.employes; _origSetItem('rtk_employes', JSON.stringify(employes)); }
@@ -1113,10 +1116,10 @@ function validerDeblocageUrgence(){
 var typeOpActuel = 'Dépôt - Transfert Monnaie';
 var compteurSession = 0;
 var PREFIXES = {
-  'Vodacom': ['081','082','083'],
+  'Vodacom': ['081','082','083','086'],
   'Airtel': ['099','098','097','096'],
   'Orange': ['080','084','085'],
-  'Africell': ['090']
+  'Africell': ['090','091']
 };
 
 function nettoyerNumero(num){
@@ -1446,6 +1449,8 @@ function enregistrerOperation(){
   monSac.push(obj);
   sauverSac(c, monSac);
 
+  pousserVersCloud(true);
+
   compteurSession++;
   document.getElementById('badgeCompteurSession').textContent = compteurSession + ' op.';
   document.getElementById('dernierRecu').textContent = '✅ Dernier : ' + typeOpActuel + ' • ' + m.toLocaleString() + ' CDF (Total ' + emp.nom + ': ' + totalEmployeApresOp.toLocaleString() + ' FC)';
@@ -1533,10 +1538,11 @@ function validerAjustementStockCaisse(){
     localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
     localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
   }
+  pousserVersCloud(true);
   fermerModal('modalStock');
   jouerTonalite('stock');
   afficher();
-  notifier('✅ Stock / Caisse synchronisé');
+  notifier('✅ Stock / Caisse synchronisé sur tous les comptes');
 }
 
 function supprimerMouvementStockParJour(idMouvement, dateJour){
@@ -1559,6 +1565,7 @@ function supprimerMouvementStockParJour(idMouvement, dateJour){
 
   stockHistorique.splice(indexTrouve, 1);
   localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
+  pousserVersCloud(true);
   jouerTonalite('suppression');
   afficher();
   notifier('🗑️ Mouvement du ' + cibleJour + ' supprimé');
@@ -1586,6 +1593,7 @@ function soumettreStockFinJournee(){
     }
   });
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  pousserVersCloud(true);
   jouerTonalite('stock');
   afficher();
   notifier('📨 Relevé envoyé au Patron');
@@ -1603,9 +1611,10 @@ function validerStockFinJourneePatron(id){
   localStorage.setItem('rtk_stockUnites', JSON.stringify(stockUnites));
   localStorage.setItem('rtk_caisse', String(caisse));
   localStorage.setItem('rtk_stock_fin_journee', JSON.stringify(relevesStockFinJournee));
+  pousserVersCloud(true);
   jouerTonalite('stock');
   afficher();
-  notifier('✅ Stock Matinal validé');
+  notifier('✅ Stock Matinal validé et synchronisé');
 }
 
 function cloturerJourneeEquipe(){
@@ -1621,6 +1630,7 @@ function cloturerJourneeEquipe(){
   if(!patron && deblocagesUrgenceJour[auj]){ delete deblocagesUrgenceJour[auj]; localStorage.setItem('rtk_deblocages_urgence', JSON.stringify(deblocagesUrgenceJour)); }
   cloturesEquipe.push({ id: Date.now(), date: auj, heure: heureActuelle(), cloturePar: u, clotureParRole: patron ? 'PATRON' : 'EMPLOYE', stats: stats, totalNb: totNb, totalMontant: totM, totalFrais: totF, message: MESSAGE_ENCOURAGEMENT });
   localStorage.setItem('rtk_clotures_equipe', JSON.stringify(cloturesEquipe));
+  pousserVersCloud(true);
   jouerTonalite('cloture');
   afficher();
   notifier('🔒 Journée clôturée');
@@ -2125,12 +2135,14 @@ function confirmerSuppression(){
     if(choix === 'TOUT' || norm(e.nom) === norm(choix)){ sac.forEach(function(v){ corbeille.push(v); }); sauverSac(e.code, []); }
   });
   localStorage.setItem('rtk_corbeille', JSON.stringify(corbeille));
+  pousserVersCloud(true);
   fermerModal('modalSuppression'); jouerTonalite('suppression'); afficher(); notifier('🗑️ Déplacé vers Corbeille');
 }
 function restaurerCorbeille(idx){
   var item = corbeille[idx], sac = chargerSac(item.vendeurCode || getCode());
   sac.push(item); sauverSac(item.vendeurCode || getCode(), sac); corbeille.splice(idx, 1);
   localStorage.setItem('rtk_corbeille', JSON.stringify(corbeille));
+  pousserVersCloud(true);
   ouvrirModalSuppression(); jouerTonalite('stock'); afficher(); notifier('↩️ Restauré');
 }
 
@@ -2153,7 +2165,7 @@ function declencherImportJSON(){ document.getElementById('inputImportJson').clic
 function traiterFichierImportJson(ev){
   var f = ev.target.files && ev.target.files[0]; if(!f) return;
   var r = new FileReader();
-  r.onload = function(e){ try{ appliquerEtatDepuisCloud(JSON.parse(e.target.result)); pousserVersCloud(); jouerTonalite('stock'); notifier('✅ Restauré'); }catch(err){ jouerTonalite('erreur'); alert('❌ JSON invalide'); } };
+  r.onload = function(e){ try{ appliquerEtatDepuisCloud(JSON.parse(e.target.result)); pousserVersCloud(true); jouerTonalite('stock'); notifier('✅ Restauré'); }catch(err){ jouerTonalite('erreur'); alert('❌ JSON invalide'); } };
   r.readAsText(f, 'UTF-8');
 }
 
@@ -2163,10 +2175,10 @@ function afficher(){
   if(!jourSelectionneHistorique) jourSelectionneHistorique = auj;
 
   document.getElementById('bonjour').textContent = (patron ? '👑 ' : '👤 ') + u;
-  document.getElementById('titreMiniResume').textContent = patron ? '📊 Résumé Équipe (Aujourd\'hui)' : '📊 Mon Résumé (' + u + ')';
+  document.getElementById('titreMiniResume').textContent = '📊 Résumé Équipe (Aujourd\'hui)';
   document.getElementById('zoneLienPatron').style.display = patron ? 'block' : 'none';
   document.getElementById('zonePatronAdmin').style.display = patron ? 'block' : 'none';
-  document.getElementById('filtrePatron').style.display = patron ? 'inline-block' : 'none';
+  document.getElementById('filtrePatron').style.display = 'inline-block';
   document.getElementById('boxEnvoiRemarque').style.display = patron ? 'none' : 'block';
   document.getElementById('boxEnvoiPatron').style.display = patron ? 'block' : 'none';
 
@@ -2176,10 +2188,11 @@ function afficher(){
   if(lienInp && window.location.href.indexOf('http') === 0) lienInp.value = window.location.href;
   else if(lienInp) lienInp.value = 'https://ryckieltwite022-tech.github.io/Cabine--rtk/';
 
+  var fp = document.getElementById('filtrePatron'), valFp = fp.value || 'TOUT';
+  fp.innerHTML = '<option value="TOUT">Tous (Équipe &amp; Patron)</option>' + employes.map(function(e){ return '<option value="' + e.nom + '">' + e.nom + (norm(e.nom)==='RYCKIEL'?' (Patron)':'') + '</option>'; }).join('');
+  fp.value = valFp;
+
   if(patron){
-    var fp = document.getElementById('filtrePatron'), valFp = fp.value || 'TOUT';
-    fp.innerHTML = '<option value="TOUT">Tous les comptes</option>' + employes.map(function(e){ return '<option value="' + e.nom + '">' + e.nom + '</option>'; }).join('');
-    fp.value = valFp;
     document.getElementById('destUniquePatron').innerHTML = employes.filter(function(e){ return norm(e.nom) !== 'RYCKIEL'; }).map(function(e){ return '<option value="' + e.nom + '">' + e.nom + '</option>'; }).join('');
   }
 
@@ -2199,15 +2212,17 @@ function afficher(){
   var jourFiltre = jourSelectionneHistorique || auj;
   var jourStockCible = (jourFiltre === 'TOUS') ? auj : jourFiltre;
 
-  var visibles = [];
-  if(patron){
-    var filtre = document.getElementById('filtrePatron').value || 'TOUT';
-    employes.forEach(function(e){ if(filtre === 'TOUT' || norm(e.nom) === norm(filtre)) chargerSac(e.code).forEach(function(v){ visibles.push(v); }); });
-  } else {
-    visibles = chargerSac(getCode());
-  }
+  var toutesOps = [];
+  employes.forEach(function(e){
+    chargerSac(e.code).forEach(function(v){ toutesOps.push(v); });
+  });
 
-  var duJour = visibles.filter(function(v){ return v.date === auj; });
+  var filtreCompte = document.getElementById('filtrePatron').value || 'TOUT';
+  var visibles = (filtreCompte === 'TOUT')
+    ? toutesOps
+    : toutesOps.filter(function(v){ return norm(v.vendeur) === norm(filtreCompte); });
+
+  var duJour = toutesOps.filter(function(v){ return v.date === auj; });
   var totM = 0, totF = 0;
   duJour.forEach(function(v){ totM += Number(v.montant||0); totF += Number(v.frais||0); });
   document.getElementById('kpiNb').textContent = duJour.length;
@@ -2215,11 +2230,11 @@ function afficher(){
   document.getElementById('kpiFrais').textContent = totF.toLocaleString();
 
   var jourTableau = (jourFiltre === 'TOUS') ? auj : jourFiltre;
-  document.getElementById('resumePatronTable').innerHTML = patron ? ('<div class="table-wrap" style="margin-bottom:10px"><table class="tbl"><tr><th>Agent (' + jourTableau + ')</th><th>Op.</th><th>Total</th><th>Frais</th></tr>' + employes.map(function(e){
+  document.getElementById('resumePatronTable').innerHTML = '<div class="table-wrap" style="margin-bottom:10px"><table class="tbl"><tr><th>Membre (' + jourTableau + ')</th><th>Op.</th><th>Total</th><th>Frais</th></tr>' + employes.map(function(e){
     var nb = 0, s = 0, f = 0;
     chargerSac(e.code).forEach(function(v){ if(v.date === jourTableau){ nb++; s += Number(v.montant||0); f += Number(v.frais||0); } });
-    return '<tr><td><b>' + e.nom + '</b></td><td>' + nb + '</td><td>' + s.toLocaleString() + '</td><td>' + f.toLocaleString() + '</td></tr>';
-  }).join('') + '</table></div>') : '';
+    return '<tr><td><b>' + e.nom + (norm(e.nom)==='RYCKIEL'?' 👑':'') + '</b></td><td>' + nb + '</td><td>' + s.toLocaleString() + '</td><td>' + f.toLocaleString() + '</td></tr>';
+  }).join('') + '</table></div>';
 
   var visiblesFiltresJour = (jourFiltre === 'TOUS') ? visibles : visibles.filter(function(v){ return v.date === jourFiltre; });
 
@@ -2231,7 +2246,7 @@ function afficher(){
     tousMouvements.push({
       tri: v.id || '',
       titre: v.service,
-      badge: patron ? '<span class="badge b-blue">' + v.vendeur + '</span>' : '',
+      badge: '<span class="badge b-blue">' + v.vendeur + '</span>',
       sousTitre: (v.numero || v.client) + ' • ' + v.detail + ' • ' + v.date + ' ' + v.heure,
       petiteTotalite: petiteTotalite,
       montantTxt: Number(v.montant).toLocaleString() + ' CDF',
@@ -2239,49 +2254,52 @@ function afficher(){
     });
   });
 
-  if(patron){
-    var stkFiltres = (jourFiltre === 'TOUS') ? stockHistorique : stockHistorique.filter(function(h){ return h.date === jourFiltre; });
-    stkFiltres.forEach(function(h){
-      var apresVal = Number(h.apres || 0);
-      var petiteStk = 'Total après ' + h.action + ': ' + apresVal.toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
-      tousMouvements.push({
-        tri: h.id || '',
-        titre: '📦 Stock ' + h.action.toUpperCase() + ' • ' + h.reseau,
-        badge: '<span class="badge b-amber">' + h.qui + '</span>',
-        sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
-        petiteTotalite: petiteStk,
-        montantTxt: Number(h.montant).toLocaleString(),
-        fraisTxt: ''
-      });
+  var stkFiltres = (jourFiltre === 'TOUS') ? stockHistorique : stockHistorique.filter(function(h){ return h.date === jourFiltre; });
+  stkFiltres.forEach(function(h){
+    if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
+    var apresVal = Number(h.apres || 0);
+    var petiteStk = 'Total après ' + h.action + ': ' + apresVal.toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
+    tousMouvements.push({
+      tri: h.id || '',
+      titre: '📦 Stock ' + h.action.toUpperCase() + ' • ' + h.reseau,
+      badge: '<span class="badge b-amber">' + h.qui + '</span>',
+      sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
+      petiteTotalite: petiteStk,
+      montantTxt: Number(h.montant).toLocaleString(),
+      fraisTxt: ''
     });
-    var caiFiltres = (jourFiltre === 'TOUS') ? caisseHistorique : caisseHistorique.filter(function(h){ return h.date === jourFiltre; });
-    caiFiltres.forEach(function(h, idx){
-      var apresCaisse = Number(h.apres || 0);
-      tousMouvements.push({
-        tri: 'caisse_' + idx,
-        titre: '💵 Caisse ' + h.action.toUpperCase(),
-        badge: '<span class="badge b-amber">' + h.qui + '</span>',
-        sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
-        petiteTotalite: 'Total caisse après: ' + apresCaisse.toLocaleString() + ' CDF',
-        montantTxt: Number(h.montant).toLocaleString() + ' CDF',
-        fraisTxt: ''
-      });
+  });
+
+  var caiFiltres = (jourFiltre === 'TOUS') ? caisseHistorique : caisseHistorique.filter(function(h){ return h.date === jourFiltre; });
+  caiFiltres.forEach(function(h, idx){
+    if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
+    var apresCaisse = Number(h.apres || 0);
+    tousMouvements.push({
+      tri: 'caisse_' + idx,
+      titre: '💵 Caisse ' + h.action.toUpperCase(),
+      badge: '<span class="badge b-amber">' + h.qui + '</span>',
+      sousTitre: h.motif + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
+      petiteTotalite: 'Total caisse après: ' + apresCaisse.toLocaleString() + ' CDF',
+      montantTxt: Number(h.montant).toLocaleString() + ' CDF',
+      fraisTxt: ''
     });
-    var frsFiltres = (jourFiltre === 'TOUS') ? fraisHistorique : fraisHistorique.filter(function(h){ return h.date === jourFiltre; });
-    frsFiltres.forEach(function(h, idx){
-      var apresFrais = Number(h.apres || 0);
-      var actFrais = (h.action || 'ajouter').toUpperCase();
-      tousMouvements.push({
-        tri: h.id || ('frais_' + idx),
-        titre: '💰 Caisse Frais ' + actFrais + (h.service ? ' • ' + h.service : ''),
-        badge: '<span class="badge b-amber">' + (h.qui || 'RYCKIEL') + '</span>',
-        sousTitre: (h.motif || h.detail || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
-        petiteTotalite: 'Total caisse frais après: ' + apresFrais.toLocaleString() + ' CDF',
-        montantTxt: Number(h.montant).toLocaleString() + ' CDF',
-        fraisTxt: ''
-      });
+  });
+
+  var frsFiltres = (jourFiltre === 'TOUS') ? fraisHistorique : fraisHistorique.filter(function(h){ return h.date === jourFiltre; });
+  frsFiltres.forEach(function(h, idx){
+    if(filtreCompte !== 'TOUT' && norm(h.qui) !== norm(filtreCompte)) return;
+    var apresFrais = Number(h.apres || 0);
+    var actFrais = (h.action || 'ajouter').toUpperCase();
+    tousMouvements.push({
+      tri: h.id || ('frais_' + idx),
+      titre: '💰 Caisse Frais ' + actFrais + (h.service ? ' • ' + h.service : ''),
+      badge: '<span class="badge b-amber">' + (h.qui || 'RYCKIEL') + '</span>',
+      sousTitre: (h.motif || h.detail || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
+      petiteTotalite: 'Total caisse frais après: ' + apresFrais.toLocaleString() + ' CDF',
+      montantTxt: Number(h.montant).toLocaleString() + ' CDF',
+      fraisTxt: ''
     });
-  }
+  });
 
   var badgeHist = document.getElementById('badgeTotalHistorique');
   if(badgeHist) badgeHist.textContent = jourFiltre + ' • ' + tousMouvements.length + ' mvt';
@@ -2369,7 +2387,7 @@ if(docCabineRef){
   docCabineRef.onSnapshot(function(snap){
     majStatutSync(enAttenteSync.length > 0 ? "🔄 Resynchro (" + enAttenteSync.length + ")..." : "🟢 Temps réel");
     if(snap.exists) appliquerEtatDepuisCloud(snap.data());
-    else pousserVersCloud();
+    else pousserVersCloud(true);
   }, function(){
     majStatutSync("🔴 Hors-ligne" + (enAttenteSync.length > 0 ? " (" + enAttenteSync.length + " en attente)" : ""));
   });

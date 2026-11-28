@@ -104,6 +104,13 @@ button:disabled{background:#CBD5E1;color:#64748B;cursor:not-allowed}
 }
 .forfait-type-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 
+.source-forfait-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.source-forfait-btn{
+  padding:9px 8px;border-radius:10px;border:1.5px solid #CBD5E1;background:#F8FAFC;
+  color:#334155;font-size:12px;font-weight:800;text-align:center;cursor:pointer;
+}
+.source-forfait-btn.active{background:#0D47A1;color:#fff;border-color:#0D47A1}
+
 .num-status{font-size:12px;font-weight:700;margin:-8px 0 10px;min-height:18px;display:flex;align-items:center;justify-content:space-between}
 .ok{color:var(--accent)}
 .bad{color:var(--danger)}
@@ -356,6 +363,22 @@ table.tbl tr.tr-total-bas td{background:#082E6B;color:#fff;font-weight:800;borde
     <input id="opMontant" type="number" inputmode="numeric" placeholder="Ex: 10000" oninput="onSaisieMontant()">
 
     <div id="zoneForfait" style="display:none">
+      <label>Mode d'activation du forfait :</label>
+      <div class="source-forfait-grid">
+        <div class="source-forfait-btn active" id="srcForfait-SIM_MONEY" onclick="choisirSourceForfait('SIM_MONEY')">💰 Via SIM Money</div>
+        <div class="source-forfait-btn" id="srcForfait-DIRECT" onclick="choisirSourceForfait('DIRECT')">⚡ Direct (Sans SIM Money)</div>
+      </div>
+
+      <div id="zoneSimMoneyForfait">
+        <label>Compte SIM Money utilisé pour le forfait :</label>
+        <select id="opSimMoneyForfait" onchange="majFraisEtResume()">
+          <option value="Airtel Money">Airtel Money</option>
+          <option value="Orange Money">Orange Money</option>
+          <option value="M-Pesa Vodacom">M-Pesa Vodacom</option>
+          <option value="Africell Money">Africell Money</option>
+        </select>
+      </div>
+
       <label>1. Choisis le type de forfait :</label>
       <div class="forfait-type-grid">
         <div class="forfait-type-btn active" id="ftype-SMS" onclick="choisirCategorieForfait('SMS')">💬 Forfait SMS</div>
@@ -831,6 +854,7 @@ var MESSAGE_ENCOURAGEMENT = "💪 Bravo à toute l'équipe RTK ! Chaque effort c
 var PRIX_UNITE_FC = 25;
 var jourSelectionneHistorique = null;
 var filtreListeForfaitsActif = 'TOUS';
+var sourceForfaitActive = 'SIM_MONEY';
 
 function majStatutSync(txt){
   var b1 = document.getElementById('syncBadge');
@@ -1243,9 +1267,39 @@ function selectionnerReseauDansSelect(reseauBase){
   for(var i=0;i<sel.options.length;i++){
     if(sel.options[i].value.indexOf(reseauBase) !== -1){ sel.selectedIndex = i; break; }
   }
+  synchroniserSimMoneyForfaitAvecReseau(reseauBase);
+}
+
+function synchroniserSimMoneyForfaitAvecReseau(reseauBase){
+  var selSm = document.getElementById('opSimMoneyForfait');
+  if(!selSm || !reseauBase || reseauBase === 'Inconnu') return;
+  for(var i=0;i<selSm.options.length;i++){
+    if(selSm.options[i].value.indexOf(reseauBase) !== -1){
+      selSm.selectedIndex = i;
+      break;
+    }
+  }
+}
+
+function choisirSourceForfait(src){
+  sourceForfaitActive = src;
+  var bSim = document.getElementById('srcForfait-SIM_MONEY');
+  var bDir = document.getElementById('srcForfait-DIRECT');
+  var zoneSm = document.getElementById('zoneSimMoneyForfait');
+  if(bSim) bSim.classList.toggle('active', src === 'SIM_MONEY');
+  if(bDir) bDir.classList.toggle('active', src === 'DIRECT');
+  if(zoneSm) zoneSm.style.display = (src === 'SIM_MONEY') ? 'block' : 'none';
+  if(src === 'SIM_MONEY'){
+    var det = detecterReseauDepuisNumero(document.getElementById('opNumero').value);
+    var resVal = (det && det !== 'Inconnu') ? det : (document.getElementById('opReseau').value || '');
+    synchroniserSimMoneyForfaitAvecReseau(resVal);
+  }
+  majFraisEtResume();
 }
 
 function onChangeReseau(){
+  var resVal = document.getElementById('opReseau').value || '';
+  synchroniserSimMoneyForfaitAvecReseau(resVal);
   validerCoherenceNumero();
   majFraisEtResume();
 }
@@ -1293,6 +1347,7 @@ function choisirTypeOp(type){
   if(det && det !== 'Inconnu') selectionnerReseauDansSelect(det);
 
   if(type === 'Recharge Forfait'){
+    choisirSourceForfait(sourceForfaitActive);
     choisirCategorieForfait(categorieForfaitActive);
     rendreGestionForfaits();
   } else if(type === 'Recharge Unités'){
@@ -1430,7 +1485,13 @@ function majFraisEtResume(){
     var parts = rawVal.split(' | ');
     var typeF = parts[0] || categorieForfaitActive;
     var nomF = (parts[1] || '').split(' - ')[0] || '-';
-    strip.innerHTML = '<span>Forfait ' + typeF + ' :</span><span>' + nomF + '</span>';
+    if(sourceForfaitActive === 'SIM_MONEY'){
+      var smCompte = document.getElementById('opSimMoneyForfait') ? document.getElementById('opSimMoneyForfait').value : 'Airtel Money';
+      var soldeSm = Number(stockMoney[smCompte] || 0);
+      strip.innerHTML = '<span>Forfait ' + typeF + ' (' + nomF + ') via <b>' + smCompte + '</b> :</span><span>Solde: ' + soldeSm.toLocaleString() + ' FC</span>';
+    } else {
+      strip.innerHTML = '<span>Forfait ' + typeF + ' (' + nomF + ') • <b>Direct</b> :</span><span>0 frais</span>';
+    }
   } else {
     strip.innerHTML = '<span>Frais :</span><span>0 CDF</span>';
   }
@@ -1464,6 +1525,7 @@ function enregistrerOperation(){
   var clientNom = document.getElementById('opClient').value.trim() || ('Client ' + (n || 'Cabine'));
   var estEchec = document.getElementById('opEstEchec').checked;
   var raison = document.getElementById('opRaisonEchec').value;
+  var compteSimMoneyUtilise = '';
 
   if(typeOpActuel === 'Recharge Unités'){
     var nbU = Math.floor(m / PRIX_UNITE_FC);
@@ -1474,7 +1536,12 @@ function enregistrerOperation(){
     var pF = rawF.split(' | ');
     var typeForfait = pF[0] || categorieForfaitActive;
     var forfaitNom = (pF[1] || '').split(' - ')[0] || 'Forfait';
-    detail = reseau + ' • [' + typeForfait + '] ' + forfaitNom + ' (' + m.toLocaleString() + ' FC)';
+    if(sourceForfaitActive === 'SIM_MONEY'){
+      compteSimMoneyUtilise = document.getElementById('opSimMoneyForfait').value || 'Airtel Money';
+      detail = reseau + ' • [' + typeForfait + '] ' + forfaitNom + ' via ' + compteSimMoneyUtilise + ' (' + m.toLocaleString() + ' FC)';
+    } else {
+      detail = reseau + ' • [' + typeForfait + '] ' + forfaitNom + ' • Direct (' + m.toLocaleString() + ' FC)';
+    }
   }
 
   var soldeApresMvt = '';
@@ -1515,6 +1582,44 @@ function enregistrerOperation(){
       if((stockUnites[reseau] || 0) < nbUnit){ jouerTonalite('erreur'); alert('⛔ Stock unités ' + reseau + ' insuffisant !'); return; }
       stockUnites[reseau] -= nbUnit;
       soldeApresMvt = 'Reste ' + reseau + ': ' + Number(stockUnites[reseau]).toLocaleString() + ' u (' + (Number(stockUnites[reseau])*PRIX_UNITE_FC).toLocaleString() + ' FC)';
+    } else if(typeOpActuel === 'Recharge Forfait' && sourceForfaitActive === 'SIM_MONEY'){
+      var avSmForfait = Number(stockMoney[compteSimMoneyUtilise] || 0);
+      if(avSmForfait < m){
+        jouerTonalite('erreur');
+        alert('⛔ Solde ' + compteSimMoneyUtilise + ' insuffisant (' + avSmForfait.toLocaleString() + ' FC) pour ce forfait !');
+        return;
+      }
+      stockMoney[compteSimMoneyUtilise] = avSmForfait - m;
+      var avCaisseForfait = caisse;
+      caisse += m;
+      soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC | ' + compteSimMoneyUtilise + ': ' + Number(stockMoney[compteSimMoneyUtilise]).toLocaleString() + ' FC';
+      stockHistorique.push({
+        id: 'frf_stk_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        qui: emp.nom,
+        action: 'forfait_sim_money',
+        type: 'money',
+        reseau: compteSimMoneyUtilise,
+        montant: m,
+        motif: 'Forfait ' + (forfaitNom || '') + ' (' + n + ')',
+        avant: avSmForfait,
+        apres: stockMoney[compteSimMoneyUtilise],
+        date: dateAujourdhui(),
+        heure: heureActuelle()
+      });
+      caisseHistorique.push({
+        qui: emp.nom,
+        action: 'ajouter',
+        montant: m,
+        reseau: compteSimMoneyUtilise,
+        motif: 'Vente Forfait via ' + compteSimMoneyUtilise + ' (' + n + ')',
+        avant: avCaisseForfait,
+        apres: caisse,
+        date: dateAujourdhui(),
+        heure: heureActuelle()
+      });
+      localStorage.setItem('rtk_caisse', String(caisse));
+      localStorage.setItem('rtk_caisse_historique', JSON.stringify(caisseHistorique));
+      localStorage.setItem('rtk_stock_historique', JSON.stringify(stockHistorique));
     } else {
       soldeApresMvt = 'Caisse: ' + caisse.toLocaleString() + ' FC';
     }
@@ -2503,15 +2608,16 @@ function afficher(){
     var apresVal = Number(h.apres || 0);
     var petiteStk = 'Total après ' + h.action + ': ' + apresVal.toLocaleString() + (h.type === 'money' ? ' CDF' : ' u');
     var estRetrait = (h.action === 'retrait');
-    var iconeMvt = estRetrait ? '💵 Retrait Money' : ('📦 Stock ' + String(h.action || '').toUpperCase());
+    var estForfaitSm = (h.action === 'forfait_sim_money');
+    var iconeMvt = estRetrait ? '💵 Retrait Money' : (estForfaitSm ? '📦 Forfait SIM Money' : ('📦 Stock ' + String(h.action || '').toUpperCase()));
     tousMouvements.push({
       tri: h.id || '',
       titre: iconeMvt + ' • ' + (h.reseau || ''),
-      badge: '<span class="badge ' + (estRetrait ? 'b-blue' : 'b-amber') + '">' + h.qui + '</span>',
+      badge: '<span class="badge ' + (estRetrait || estForfaitSm ? 'b-blue' : 'b-amber') + '">' + h.qui + '</span>',
       sousTitre: (h.motif || '') + ' • ' + (h.date || '') + ' ' + (h.heure || ''),
       petiteTotalite: petiteStk,
       montantTxt: Number(h.montant).toLocaleString() + (h.type === 'money' ? ' CDF' : ''),
-      fraisTxt: estRetrait ? '0 frais' : ''
+      fraisTxt: (estRetrait || estForfaitSm) ? '0 frais' : ''
     });
   });
 
